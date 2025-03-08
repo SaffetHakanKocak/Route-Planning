@@ -1,0 +1,42 @@
+# Maven Build Dosyaları
+/target/
+*.war
+*.jar
+*.ear
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse IDE
+.classpath
+.project
+.settings/
+
+# VSCode IDE
+.vscode/
+
+# Sistem Dosyaları (Windows, Mac, Linux)
+.DS_Store
+Thumbs.db
+
+# Log Dosyaları
+*.log
+
+# Node.js / npm Dosyaları (Eğer ekleyecek olursanız)
+node_modules/
+package-lock.json
+
+# Test Raporları
+/test-output/
+
+# Temp / Geçici Dosyalar
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Özel Ayarlar (Opsiyonel)
+application.properties
