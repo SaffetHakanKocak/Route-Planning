@@ -10,15 +10,38 @@
             padding: 0;
             height: 100%;
             overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 25%;
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        .sidebar h2 {
+            margin-top: 0;
         }
         #map {
+            width: 75%;
             height: 100vh;
-            width: 100%;
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+    <div class="container">
+        <!-- Sol Taraf (Sidebar) -->
+        <div class="sidebar">
+            <h2>Seçenekler</h2>
+            <!-- Buraya daha sonra butonlar ve seçimler eklenecek -->
+        </div>
+
+        <!-- Sağ Taraf (Harita) -->
+        <div id="map"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
