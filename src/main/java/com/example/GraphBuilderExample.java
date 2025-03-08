@@ -11,6 +11,7 @@ import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,21 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.google.gson.Gson;
 
 @SpringBootApplication
-@RestController
-@RequestMapping("/api")
 public class GraphBuilderExample {
-
-    @GetMapping("/stops")
-    public List<Stop> getAllStops() {
-        Gson gson = new Gson();
-        InputStream is = getClass().getResourceAsStream("/data.json");
-        CityData cityData = gson.fromJson(
-            new InputStreamReader(is, StandardCharsets.UTF_8),
-            CityData.class
-        );
-        return cityData.getDuraklar();
-    }
-
     public static void main(String[] args) {
         SpringApplication.run(GraphBuilderExample.class, args);  // ✅ Sunucunun sürekli çalışmasını sağlar
 
@@ -92,93 +79,121 @@ public class GraphBuilderExample {
             e.printStackTrace();
         }
     }
+}
 
-    static class CityData {
-        private String city;
-        private Taxi taxi;
-        private List<Stop> duraklar;
+// ------------------- HomeController --------------------
+@Controller
+class HomeController {
 
-        public String getCity() { return city; }
-        public Taxi getTaxi() { return taxi; }
-        public List<Stop> getDuraklar() { return duraklar; }
+    @GetMapping("/")
+    public String home() {
+        return "index"; // `index.html` dosyasını yükler
+    }
+}
+
+// ------------------- API Controller --------------------
+@RestController
+@RequestMapping("/api")
+class StopController {
+
+    @GetMapping("/stops")
+    public List<Stop> getAllStops() {
+        Gson gson = new Gson();
+        InputStream is = getClass().getResourceAsStream("/data.json");
+        CityData cityData = gson.fromJson(
+            new InputStreamReader(is, StandardCharsets.UTF_8),
+            CityData.class
+        );
+        return cityData.getDuraklar();
+    }
+}
+
+// ------------------- Model Sınıfları --------------------
+class CityData {
+    private String city;
+    private Taxi taxi;
+    private List<Stop> duraklar;
+
+    public String getCity() { return city; }
+    public Taxi getTaxi() { return taxi; }
+    public List<Stop> getDuraklar() { return duraklar; }
+}
+
+class Taxi {
+    private double openingFee;
+    private double costPerKm;
+
+    public double getOpeningFee() { return openingFee; }
+    public double getCostPerKm() { return costPerKm; }
+}
+
+class Stop {
+    private String id;
+    private String name;
+    private String type;
+    private double lat;
+    private double lon;
+    private boolean sonDurak;
+    private List<NextStopInfo> nextStops;
+    private Transfer transfer;
+
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public String getType() { return type; }
+    public double getLat() { return lat; }
+    public double getLon() { return lon; }
+    public boolean isSonDurak() { return sonDurak; }
+    public List<NextStopInfo> getNextStops() { return nextStops; }
+    public Transfer getTransfer() { return transfer; }
+
+    @Override
+    public String toString() { return id + " (" + name + ")"; }
+}
+
+class NextStopInfo {
+    private String stopId;
+    private double mesafe;
+    private int sure;
+    private double ucret;
+
+    public String getStopId() { return stopId; }
+    public double getMesafe() { return mesafe; }
+    public int getSure() { return sure; }
+    public double getUcret() { return ucret; }
+
+    @Override
+    public String toString() {
+        return "[mesafe=" + mesafe + ", sure=" + sure + ", ucret=" + ucret + "]";
+    }
+}
+
+class Transfer {
+    private String transferStopId;
+    private int transferSure;
+    private double transferUcret;
+
+    public String getTransferStopId() { return transferStopId; }
+    public int getTransferSure() { return transferSure; }
+    public double getTransferUcret() { return transferUcret; }
+}
+
+class RouteEdge {
+    private double mesafe;
+    private int sure;
+    private double ucret;
+
+    public RouteEdge(double mesafe, int sure, double ucret) {
+        this.mesafe = mesafe;
+        this.sure = sure;
+        this.ucret = ucret;
     }
 
-    static class Taxi {
-        private double openingFee;
-        private double costPerKm;
+    public double getMesafe() { return mesafe; }
+    public int getSure() { return sure; }
+    public double getUcret() { return ucret; }
 
-        public double getOpeningFee() { return openingFee; }
-        public double getCostPerKm() { return costPerKm; }
-    }
-
-    static class Stop {
-        private String id;
-        private String name;
-        private String type;
-        private double lat;
-        private double lon;
-        private boolean sonDurak;
-        private List<NextStopInfo> nextStops;
-        private Transfer transfer;
-
-        public String getId() { return id; }
-        public String getName() { return name; }
-        public String getType() { return type; }
-        public double getLat() { return lat; }
-        public double getLon() { return lon; }
-        public boolean isSonDurak() { return sonDurak; }
-        public List<NextStopInfo> getNextStops() { return nextStops; }
-        public Transfer getTransfer() { return transfer; }
-
-        @Override
-        public String toString() { return id + " (" + name + ")"; }
-    }
-
-    static class NextStopInfo {
-        private String stopId;
-        private double mesafe;
-        private int sure;
-        private double ucret;
-
-        public String getStopId() { return stopId; }
-        public double getMesafe() { return mesafe; }
-        public int getSure() { return sure; }
-        public double getUcret() { return ucret; }
-
-        @Override
-        public String toString() {
-            return "[mesafe=" + mesafe + ", sure=" + sure + ", ucret=" + ucret + "]";
-        }
-    }
-
-    static class Transfer {
-        private String transferStopId;
-        private int transferSure;
-        private double transferUcret;
-
-        public String getTransferStopId() { return transferStopId; }
-        public int getTransferSure() { return transferSure; }
-        public double getTransferUcret() { return transferUcret; }
-    }
-
-    static class RouteEdge {
-        private double mesafe;
-        private int sure;
-        private double ucret;
-
-        public RouteEdge(double mesafe, int sure, double ucret) {
-            this.mesafe = mesafe;
-            this.sure = sure;
-            this.ucret = ucret;
-        }
-
-        public double getMesafe() { return mesafe; }
-        public int getSure() { return sure; }
-        public double getUcret() { return ucret; }
-
-        @Override
-        public String toString() {
-            return "[mesafe=" + mesafe + ", sure=" + sure + ", ucret=" + ucret + "]";
-        }
+    @Override
+    public String toString() {
+        return "[mesafe=" + mesafe + ", sure=" + sure + ", ucret=" + ucret + "]";
     }
 }
