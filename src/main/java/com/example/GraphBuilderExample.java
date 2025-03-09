@@ -26,7 +26,7 @@ public class GraphBuilderExample {
         SpringApplication.run(GraphBuilderExample.class, args);  // Sunucunun sürekli çalışmasını sağlar
 
         try {
-            InputStream is = GraphBuilderExample.class.getResourceAsStream("/data.json");
+            InputStream is = GraphBuilderExample.class.getResourceAsStream("/data.json"); //JSON Dosyasının Yüklenmesi
             if (is == null) {
                 System.err.println("data.json not found in src/main/resources!");
                 return;
@@ -34,22 +34,22 @@ public class GraphBuilderExample {
 
             Gson gson = new Gson();
             CityData cityData = gson.fromJson(
-                    new InputStreamReader(is, StandardCharsets.UTF_8),
+                    new InputStreamReader(is, StandardCharsets.UTF_8), //JSON formatındaki veriyi CityData sınıfına ait java nesnesine dönüştürüyor
                     CityData.class
             );
 
-            Map<String, Stop> stopMap = new HashMap<>();
+            Map<String, Stop> stopMap = new HashMap<>(); // durak listesindeki her bir durak, id'lerine göre haritalanır ve ihtiyaç duyulduğunda id üzerinden hızlı erişim sağlanır
             for (Stop stop : cityData.getDuraklar()) {
                 stopMap.put(stop.getId(), stop);
             }
 
-            Graph<Stop, RouteEdge> graph = new DefaultDirectedGraph<>(RouteEdge.class);
+            Graph<Stop, RouteEdge> graph = new DefaultDirectedGraph<>(RouteEdge.class); //Graph yapısı oluşturuyor Düğümler durak, Kenarlar yollar
 
-            for (Stop stop : cityData.getDuraklar()) {
+            for (Stop stop : cityData.getDuraklar()) { //Grapha düğümler ekleniyor
                 graph.addVertex(stop);
             }
 
-            for (Stop stop : cityData.getDuraklar()) {
+            for (Stop stop : cityData.getDuraklar()) { //Grapha kenarlar ekleniyor
                 if (!stop.isSonDurak() && stop.getNextStops() != null) {
                     for (NextStopInfo ns : stop.getNextStops()) {
                         Stop target = stopMap.get(ns.getStopId());
@@ -60,7 +60,7 @@ public class GraphBuilderExample {
                     }
                 }
 
-                if (stop.getTransfer() != null) {
+                if (stop.getTransfer() != null) { //Grapha transfer kenarları ekleniyor
                     Transfer transfer = stop.getTransfer();
                     Stop transferTarget = stopMap.get(transfer.getTransferStopId());
                     if (transferTarget != null) {
@@ -70,7 +70,7 @@ public class GraphBuilderExample {
                 }
             }
 
-            System.out.println("Graf Kenarları:");
+            System.out.println("Graf Kenarları:"); //Graph kenarlarını başlangıç ve bitiş olarak yazıyor
             graph.edgeSet().forEach(edge -> {
                 Stop source = graph.getEdgeSource(edge);
                 Stop target = graph.getEdgeTarget(edge);
@@ -85,7 +85,7 @@ public class GraphBuilderExample {
 
 // ------------------- HomeController --------------------
 @Controller
-class HomeController {
+class HomeController { //Uygulamanın ana sayfasına gelen GET isteğini karşılayan ve index.html dosyasını yükleyen bir kontrolör (controller) tanımlanmıştır.
 
     @GetMapping("/")
     public String home() {
@@ -101,12 +101,12 @@ class StopController {
     @GetMapping("/stops")
     public List<Stop> getAllStops() {
         Gson gson = new Gson();
-        InputStream is = getClass().getResourceAsStream("/data.json");
+        InputStream is = getClass().getResourceAsStream("/data.json"); //data.json dosyasını UTF-8 karakter setiyle okur ve CityData nesnesine dönüştürür.
         CityData cityData = gson.fromJson(
             new InputStreamReader(is, StandardCharsets.UTF_8),
             CityData.class
         );
-        return cityData.getDuraklar();
+        return cityData.getDuraklar(); //JSON’dan ayrıştırılan durak listesini istemciye gönderir.
     }
 
     @PostMapping("/selectPassengerType")
@@ -143,7 +143,6 @@ class StopController {
         return response;
     }
     
-    // Yeni eklenen hedef konum seçimi endpoint'i
     @PostMapping("/setDestinationPoint")
     public Map<String, String> setDestinationPoint(@RequestBody Map<String, Double> request) {
         double lat = request.get("lat");
