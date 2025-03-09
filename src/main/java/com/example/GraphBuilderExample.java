@@ -9,9 +9,12 @@ import java.util.Map;
 
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultDirectedGraph;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,93 +23,124 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.google.gson.Gson;
 
+// ==================== Uygulama Başlatıcı ====================
 @SpringBootApplication
-public class GraphBuilderExample {
+public class GraphBuilderExample implements CommandLineRunner {
+    private final GraphBuilderService graphBuilderService;
+
+    @Autowired
+    public GraphBuilderExample(GraphBuilderService graphBuilderService) {
+        this.graphBuilderService = graphBuilderService;
+    }
+
     public static void main(String[] args) {
-        SpringApplication.run(GraphBuilderExample.class, args);  // Sunucunun sürekli çalışmasını sağlar
+        SpringApplication.run(GraphBuilderExample.class, args);
+    }
 
+    @Override
+    public void run(String... args) {
         try {
-            InputStream is = GraphBuilderExample.class.getResourceAsStream("/data.json"); //JSON Dosyasının Yüklenmesi
-            if (is == null) {
-                System.err.println("data.json not found in src/main/resources!");
-                return;
-            }
-
-            Gson gson = new Gson();
-            CityData cityData = gson.fromJson(
-                    new InputStreamReader(is, StandardCharsets.UTF_8), //JSON formatındaki veriyi CityData sınıfına ait java nesnesine dönüştürüyor
-                    CityData.class
-            );
-
-            Map<String, Stop> stopMap = new HashMap<>(); // durak listesindeki her bir durak, id'lerine göre haritalanır ve ihtiyaç duyulduğunda id üzerinden hızlı erişim sağlanır
-            for (Stop stop : cityData.getDuraklar()) {
-                stopMap.put(stop.getId(), stop);
-            }
-
-            Graph<Stop, RouteEdge> graph = new DefaultDirectedGraph<>(RouteEdge.class); //Graph yapısı oluşturuyor Düğümler durak, Kenarlar yollar
-
-            for (Stop stop : cityData.getDuraklar()) { //Grapha düğümler ekleniyor
-                graph.addVertex(stop);
-            }
-
-            for (Stop stop : cityData.getDuraklar()) { //Grapha kenarlar ekleniyor
-                if (!stop.isSonDurak() && stop.getNextStops() != null) {
-                    for (NextStopInfo ns : stop.getNextStops()) {
-                        Stop target = stopMap.get(ns.getStopId());
-                        if (target != null) {
-                            RouteEdge edge = new RouteEdge(ns.getMesafe(), ns.getSure(), ns.getUcret());
-                            graph.addEdge(stop, target, edge);
-                        }
-                    }
-                }
-
-                if (stop.getTransfer() != null) { //Grapha transfer kenarları ekleniyor
-                    Transfer transfer = stop.getTransfer();
-                    Stop transferTarget = stopMap.get(transfer.getTransferStopId());
-                    if (transferTarget != null) {
-                        RouteEdge transferEdge = new RouteEdge(0.0, transfer.getTransferSure(), transfer.getTransferUcret());
-                        graph.addEdge(stop, transferTarget, transferEdge);
-                    }
-                }
-            }
-
-            System.out.println("Graf Kenarları:"); //Graph kenarlarını başlangıç ve bitiş olarak yazıyor
+            Graph<Stop, RouteEdge> graph = graphBuilderService.buildGraph();
+            System.out.println("Graf Kenarları:");
             graph.edgeSet().forEach(edge -> {
                 Stop source = graph.getEdgeSource(edge);
                 Stop target = graph.getEdgeTarget(edge);
                 System.out.println(source.getId() + " -> " + target.getId() + " | " + edge);
             });
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 }
 
-// ------------------- HomeController --------------------
-@Controller
-class HomeController { //Uygulamanın ana sayfasına gelen GET isteğini karşılayan ve index.html dosyasını yükleyen bir kontrolör (controller) tanımlanmıştır.
+// ==================== Graf Oluşturma Servisi ====================
+@Service
+class GraphBuilderService {
+    private final CityDataRepository cityDataRepository;
 
-    @GetMapping("/")
-    public String home() {
-        return "index"; // `index.html` dosyasını yükler
+    @Autowired
+    public GraphBuilderService(CityDataRepository cityDataRepository) {
+        this.cityDataRepository = cityDataRepository;
+    }
+
+    public Graph<Stop, RouteEdge> buildGraph() throws Exception {
+        CityData cityData = cityDataRepository.loadCityData();
+
+        // Durakları id'lerine göre haritalıyoruz
+        Map<String, Stop> stopMap = new HashMap<>();
+        for (Stop stop : cityData.getDuraklar()) {
+            stopMap.put(stop.getId(), stop);
+        }
+
+        // Grafı oluşturuyoruz: Düğümler durak, kenarlar yollar
+        Graph<Stop, RouteEdge> graph = new DefaultDirectedGraph<>(RouteEdge.class);
+        for (Stop stop : cityData.getDuraklar()) {
+            graph.addVertex(stop);
+        }
+
+        for (Stop stop : cityData.getDuraklar()) {
+            if (!stop.isSonDurak() && stop.getNextStops() != null) {
+                for (NextStopInfo ns : stop.getNextStops()) {
+                    Stop target = stopMap.get(ns.getStopId());
+                    if (target != null) {
+                        RouteEdge edge = new RouteEdge(ns.getMesafe(), ns.getSure(), ns.getUcret());
+                        graph.addEdge(stop, target, edge);
+                    }
+                }
+            }
+            if (stop.getTransfer() != null) {
+                Transfer transfer = stop.getTransfer();
+                Stop transferTarget = stopMap.get(transfer.getTransferStopId());
+                if (transferTarget != null) {
+                    RouteEdge transferEdge = new RouteEdge(0.0, transfer.getTransferSure(), transfer.getTransferUcret());
+                    graph.addEdge(stop, transferTarget, transferEdge);
+                }
+            }
+        }
+        return graph;
     }
 }
 
-// ------------------- API Controller --------------------
+// ==================== Veri Erişimi (Repository) ====================
+@Service
+class CityDataRepository {
+    public CityData loadCityData() throws Exception {
+        InputStream is = getClass().getResourceAsStream("/data.json");
+        if (is == null) {
+            throw new Exception("data.json not found in src/main/resources!");
+        }
+        Gson gson = new Gson();
+        return gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), CityData.class);
+    }
+}
+
+// ==================== Web Controller'lar ====================
+
+// Ana sayfa için Controller
+@Controller
+class HomeController {
+    @GetMapping("/")
+    public String home() {
+        return "index";
+    }
+}
+
+// API Controller
 @RestController
 @RequestMapping("/api")
 class StopController {
 
+    private final CityDataRepository cityDataRepository;
+
+    @Autowired
+    public StopController(CityDataRepository cityDataRepository) {
+        this.cityDataRepository = cityDataRepository;
+    }
+
     @GetMapping("/stops")
-    public List<Stop> getAllStops() {
-        Gson gson = new Gson();
-        InputStream is = getClass().getResourceAsStream("/data.json"); //data.json dosyasını UTF-8 karakter setiyle okur ve CityData nesnesine dönüştürür.
-        CityData cityData = gson.fromJson(
-            new InputStreamReader(is, StandardCharsets.UTF_8),
-            CityData.class
-        );
-        return cityData.getDuraklar(); //JSON’dan ayrıştırılan durak listesini istemciye gönderir.
+    public List<Stop> getAllStops() throws Exception {
+        CityData cityData = cityDataRepository.loadCityData();
+        return cityData.getDuraklar();
     }
 
     @PostMapping("/selectPassengerType")
@@ -156,7 +190,7 @@ class StopController {
     }
 }
 
-// ------------------- Model Sınıfları --------------------
+// ==================== Model Sınıfları ====================
 class CityData {
     private String city;
     private Taxi taxi;
