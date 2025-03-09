@@ -121,13 +121,40 @@
             iconSize: [32, 32]
         });
 
-        // API'den durakları çekme
+        // API'den durakları çekme ve marker'lara tıklanınca bilgi gösterme
         fetch('/api/stops')
             .then(response => response.json())
             .then(data => {
                 data.forEach(stop => {
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
-                    L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
+                    let marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
+                    
+                    // Marker'a her tıklamada popup içeriğini güncelle ve aç
+                    marker.on('click', function(e) {
+                        // Diğer olayların etkilenmemesi için tıklama event'ini durduruyoruz
+                        e.originalEvent.stopPropagation();
+                        
+                        // Popup içeriği: İlk satırda durak adı, hemen altında konum bilgileri (enlem, boylam) yer alıyor
+                        let stopInfo = `<b>${stop.name}</b><br>` +
+                                       `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>` +
+                                       `ID: ${stop.id}<br>` +
+                                       `Tip: ${stop.type}<br>` +
+                                       `Son Durak: ${stop.sonDurak ? "Evet" : "Hayır"}`;
+                        if (stop.nextStops && stop.nextStops.length > 0) {
+                            stopInfo += `<br>Sonraki Durak Sayısı: ${stop.nextStops.length}`;
+                        }
+                        if (stop.transfer) {
+                            stopInfo += `<br>Transfer Var`;
+                        }
+                        
+                        // Popup zaten varsa içeriğini güncelle, yoksa oluştur
+                        if (marker.getPopup()) {
+                            marker.setPopupContent(stopInfo);
+                        } else {
+                            marker.bindPopup(stopInfo);
+                        }
+                        marker.openPopup();
+                    });
                 });
             })
             .catch(error => console.error('Veri çekme hatası:', error));
