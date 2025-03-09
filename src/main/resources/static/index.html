@@ -25,6 +25,27 @@
         .sidebar h2 {
             margin-top: 0;
         }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .button-group button {
+            flex: 1;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button-group button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button-group button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
         #map {
             width: 75%;
             height: 100vh;
@@ -36,7 +57,43 @@
         <!-- Sol Taraf (Sidebar) -->
         <div class="sidebar">
             <h2>Seçenekler</h2>
-            <!-- Buraya daha sonra butonlar ve seçimler eklenecek -->
+
+            <!-- Yolcu Tipi Seçimi -->
+            <div>
+                <p>Yolcu tipini seçiniz:</p>
+                <div class="button-group">
+                    <button id="genelBtn" onclick="selectPassengerType('Genel')">Genel</button>
+                    <button id="ogrenciBtn" onclick="selectPassengerType('Ogrenci')">Öğrenci</button>
+                    <button id="yasliBtn" onclick="selectPassengerType('Yasli')">Yaşlı</button>
+                </div>
+            </div>
+
+            <!-- Ödeme Türü Seçimi -->
+            <div>
+                <p>Ödeme türünü seçiniz:</p>
+                <div class="button-group">
+                    <button id="nakitBtn" onclick="selectPaymentType('Nakit')">Nakit</button>
+                    <!-- ID güncellendi: "kredikartiBtn" -->
+                    <button id="kredikartiBtn" onclick="selectPaymentType('KrediKarti')">Kredi Kartı</button>
+                    <button id="kentkartBtn" onclick="selectPaymentType('Kentkart')">Kentkart</button>
+                </div>
+            </div>
+
+            <!-- Başlangıç Noktası Seçimi -->
+            <div>
+                <p>Başlangıç noktası seçiniz:</p>
+                <div class="button-group">
+                    <button id="selectStartPointBtn" onclick="enableStartPointSelection()">Başlangıç Noktası Seçiniz</button>
+                </div>
+            </div>
+
+            <!-- Hedef Konum Seçimi -->
+            <div>
+                <p>Hedef konum seçiniz:</p>
+                <div class="button-group">
+                    <button id="selectDestinationPointBtn" onclick="enableDestinationPointSelection()">Hedef Konum Seçiniz</button>
+                </div>
+            </div>
         </div>
 
         <!-- Sağ Taraf (Harita) -->
@@ -54,13 +111,13 @@
 
         // Tramvay ikonu
         const tramIcon = L.icon({
-            iconUrl: 'tram.png',   // İkonu static klasörüne ekleyin
+            iconUrl: 'tram.png',
             iconSize: [32, 32]
         });
 
         // Otobüs ikonu
         const busIcon = L.icon({
-            iconUrl: 'bus.png',   // İkonu static klasörüne ekleyin
+            iconUrl: 'bus.png',
             iconSize: [32, 32]
         });
 
@@ -70,30 +127,116 @@
             .then(data => {
                 data.forEach(stop => {
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
-
-                    const marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map)
-                        .bindPopup(`
-                            <b>${stop.name}</b><br>
-                            Tür: ${stop.type.toUpperCase()}<br>
-                            Son Durak: ${stop.sonDurak ? 'Evet' : 'Hayır'}
-                        `);
-
-                    // Transfer bilgisi varsa ek bir işaretleme ekleyelim
-                    if (stop.transfer) {
-                        L.circleMarker([stop.lat, stop.lon], {
-                            color: 'blue',
-                            radius: 10
-                        }).addTo(map)
-                        .bindPopup(`
-                            <b>${stop.name} (Transfer)</b><br>
-                            Transfer Noktası: ${stop.transfer.transferStopId}<br>
-                            Süre: ${stop.transfer.transferSure} dk<br>
-                            Ücret: ${stop.transfer.transferUcret} TL
-                        `);
-                    }
+                    L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
                 });
             })
             .catch(error => console.error('Veri çekme hatası:', error));
+
+        // Yolcu Tipi Seçimi Fonksiyonu
+        function selectPassengerType(type) {
+            console.log(`Seçilen yolcu tipi: ${type}`);
+            document.getElementById('genelBtn').disabled = true;
+            document.getElementById('ogrenciBtn').disabled = true;
+            document.getElementById('yasliBtn').disabled = true;
+            document.getElementById(`${type.toLowerCase()}Btn`).style.backgroundColor = '#28a745';
+
+            fetch('/api/selectPassengerType', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ passengerType: type }),
+            });
+        }
+
+        // Ödeme Türü Seçimi Fonksiyonu
+        function selectPaymentType(type) {
+            console.log(`Seçilen ödeme türü: ${type}`);
+            document.getElementById('nakitBtn').disabled = true;
+            document.getElementById('kredikartiBtn').disabled = true;
+            document.getElementById('kentkartBtn').disabled = true;
+            document.getElementById(`${type.toLowerCase()}Btn`).style.backgroundColor = '#28a745';
+
+            fetch('/api/selectPaymentType', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paymentType: type }),
+            });
+        }
+
+        // Başlangıç Noktası Seçimi Fonksiyonu
+        let startPointMarker = null;
+
+        function enableStartPointSelection() {
+            map.on('click', onMapClickStart);
+            document.getElementById('selectStartPointBtn').disabled = true;
+            document.getElementById('selectStartPointBtn').style.backgroundColor = '#28a745';
+            alert('Haritada bir noktaya tıklayarak başlangıç noktası seçin.');
+        }
+
+        function onMapClickStart(e) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+
+            // Önceki başlangıç işaretini temizle
+            if (startPointMarker) {
+                map.removeLayer(startPointMarker);
+            }
+
+            // Yeni işaretleme yap (Başlangıç için)
+            startPointMarker = L.marker([lat, lon], {
+                icon: L.icon({
+                    iconUrl: 'ikon.png',  // Başlangıç için kullanılan ikon
+                    iconSize: [32, 32]
+                })
+            }).addTo(map);
+
+            // Konumu backend'e gönder
+            fetch('/api/setStartPoint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat: lat, lon: lon }),
+            });
+
+            // Tıklama olayını kaldır (sadece bir kez tıklama yapılır)
+            map.off('click', onMapClickStart);
+        }
+
+        // Hedef Konum Seçimi Fonksiyonu
+        let destinationPointMarker = null;
+
+        function enableDestinationPointSelection() {
+            map.on('click', onMapClickDestination);
+            document.getElementById('selectDestinationPointBtn').disabled = true;
+            document.getElementById('selectDestinationPointBtn').style.backgroundColor = '#28a745';
+            alert('Haritada bir noktaya tıklayarak hedef konum seçin.');
+        }
+
+        function onMapClickDestination(e) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+
+            // Önceki hedef işaretini temizle
+            if (destinationPointMarker) {
+                map.removeLayer(destinationPointMarker);
+            }
+
+            // Yeni işaretleme yap (Hedef için)
+            destinationPointMarker = L.marker([lat, lon], {
+                icon: L.icon({
+                    iconUrl: 'ikon.png',  // Hedef için kullanılan ikon; farklı bir ikon tercih edilebilir
+                    iconSize: [32, 32]
+                })
+            }).addTo(map);
+
+            // Konumu backend'e gönder
+            fetch('/api/setDestinationPoint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat: lat, lon: lon }),
+            });
+
+            // Tıklama olayını kaldır (sadece bir kez tıklama yapılır)
+            map.off('click', onMapClickDestination);
+        }
     </script>
 </body>
 </html>

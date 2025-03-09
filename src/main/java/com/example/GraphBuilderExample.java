@@ -13,6 +13,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +23,7 @@ import com.google.gson.Gson;
 @SpringBootApplication
 public class GraphBuilderExample {
     public static void main(String[] args) {
-        SpringApplication.run(GraphBuilderExample.class, args);  // ✅ Sunucunun sürekli çalışmasını sağlar
+        SpringApplication.run(GraphBuilderExample.class, args);  // Sunucunun sürekli çalışmasını sağlar
 
         try {
             InputStream is = GraphBuilderExample.class.getResourceAsStream("/data.json");
@@ -105,6 +107,53 @@ class StopController {
             CityData.class
         );
         return cityData.getDuraklar();
+    }
+
+    @PostMapping("/selectPassengerType")
+    public Map<String, String> selectPassengerType(@RequestBody Map<String, String> request) {
+        String passengerType = request.get("passengerType");
+        System.out.println("Seçilen yolcu tipi: " + passengerType);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Yolcu tipi başarıyla seçildi: " + passengerType);
+        return response;
+    }
+
+    @PostMapping("/selectPaymentType")
+    public Map<String, String> selectPaymentType(@RequestBody Map<String, String> request) {
+        String paymentType = request.get("paymentType");
+        System.out.println("Seçilen ödeme türü: " + paymentType);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Ödeme türü başarıyla seçildi: " + paymentType);
+        return response;
+    }
+
+    @PostMapping("/setStartPoint")
+    public Map<String, String> setStartPoint(@RequestBody Map<String, Double> request) {
+        double lat = request.get("lat");
+        double lon = request.get("lon");
+        System.out.println("Başlangıç noktası ayarlandı: Enlem = " + lat + ", Boylam = " + lon);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Başlangıç noktası başarıyla ayarlandı: Enlem = " + lat + ", Boylam = " + lon);
+        return response;
+    }
+    
+    // Yeni eklenen hedef konum seçimi endpoint'i
+    @PostMapping("/setDestinationPoint")
+    public Map<String, String> setDestinationPoint(@RequestBody Map<String, Double> request) {
+        double lat = request.get("lat");
+        double lon = request.get("lon");
+        System.out.println("Hedef noktası ayarlandı: Enlem = " + lat + ", Boylam = " + lon);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Hedef noktası başarıyla ayarlandı: Enlem = " + lat + ", Boylam = " + lon);
+        return response;
     }
 }
 
