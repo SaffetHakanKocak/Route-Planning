@@ -129,12 +129,11 @@
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
                     let marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
                     
-                    // Marker'a her tıklamada popup içeriğini güncelle ve aç
+                    // Marker'a her tıklamada popup içeriğini yeniden oluşturup açıyoruz
                     marker.on('click', function(e) {
-                        // Diğer olayların etkilenmemesi için tıklama event'ini durduruyoruz
                         e.originalEvent.stopPropagation();
                         
-                        // Popup içeriği: İlk satırda durak adı, hemen altında konum bilgileri (enlem, boylam) yer alıyor
+                        // Popup içeriği: İlk satırda durak adı, hemen altında konum bilgileri (enlem, boylam)
                         let stopInfo = `<b>${stop.name}</b><br>` +
                                        `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>` +
                                        `ID: ${stop.id}<br>` +
@@ -147,12 +146,9 @@
                             stopInfo += `<br>Transfer Var`;
                         }
                         
-                        // Popup zaten varsa içeriğini güncelle, yoksa oluştur
-                        if (marker.getPopup()) {
-                            marker.setPopupContent(stopInfo);
-                        } else {
-                            marker.bindPopup(stopInfo);
-                        }
+                        // Her seferinde popup'ı kaldırıp yeniden bağlıyoruz
+                        marker.unbindPopup();
+                        marker.bindPopup(stopInfo, { offset: [0, -30] });
                         marker.openPopup();
                     });
                 });
@@ -203,27 +199,23 @@
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
 
-            // Önceki başlangıç işaretini temizle
             if (startPointMarker) {
                 map.removeLayer(startPointMarker);
             }
 
-            // Yeni işaretleme yap (Başlangıç için)
             startPointMarker = L.marker([lat, lon], {
                 icon: L.icon({
-                    iconUrl: 'ikon.png',  // Başlangıç için kullanılan ikon
+                    iconUrl: 'ikon.png',
                     iconSize: [32, 32]
                 })
             }).addTo(map);
 
-            // Konumu backend'e gönder
             fetch('/api/setStartPoint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat: lat, lon: lon }),
             });
 
-            // Tıklama olayını kaldır (sadece bir kez tıklama yapılır)
             map.off('click', onMapClickStart);
         }
 
@@ -241,27 +233,23 @@
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
 
-            // Önceki hedef işaretini temizle
             if (destinationPointMarker) {
                 map.removeLayer(destinationPointMarker);
             }
 
-            // Yeni işaretleme yap (Hedef için)
             destinationPointMarker = L.marker([lat, lon], {
                 icon: L.icon({
-                    iconUrl: 'ikon.png',  // Hedef için kullanılan ikon; farklı bir ikon tercih edilebilir
+                    iconUrl: 'ikon.png',
                     iconSize: [32, 32]
                 })
             }).addTo(map);
 
-            // Konumu backend'e gönder
             fetch('/api/setDestinationPoint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ lat: lat, lon: lon }),
             });
 
-            // Tıklama olayını kaldır (sadece bir kez tıklama yapılır)
             map.off('click', onMapClickDestination);
         }
     </script>
