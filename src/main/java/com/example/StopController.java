@@ -14,11 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class StopController {
-    // Bu alanlarda başlangıç ve hedef koordinatları saklanabilir. (Örneğin session veya servis aracılığıyla)
+    // Başlangıç ve hedef koordinatları
     private double startLat;
     private double startLon;
     private double destLat;
     private double destLon;
+
+    // Seçilen yolcu ve ödeme nesneleri
+    private Yolcu selectedYolcu;
+    private OdemeYontemi selectedOdemeYontemi;
 
     private final CityDataRepository cityDataRepository;
     private final GraphBuilderService graphBuilderService;
@@ -29,7 +33,7 @@ public class StopController {
         this.graphBuilderService = graphBuilderService;
     }
     
-     @GetMapping("/stops")
+    @GetMapping("/stops")
     public List<Stop> getAllStops() throws Exception {
         CityData cityData = cityDataRepository.loadCityData();
         return cityData.getDuraklar();
@@ -38,22 +42,26 @@ public class StopController {
     @PostMapping("/selectPassengerType")
     public Map<String, String> selectPassengerType(@RequestBody Map<String, String> request) {
         String passengerType = request.get("passengerType");
-        System.out.println("Seçilen yolcu tipi: " + passengerType);
+        // ObjectFactory kullanarak yolcu nesnesi oluşturuluyor.
+        selectedYolcu = ObjectFactory.createYolcu(passengerType);
+        System.out.println("Seçilen yolcu tipi: " + selectedYolcu.YolcuTipiGoster());
 
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
-        response.put("message", "Yolcu tipi başarıyla seçildi: " + passengerType);
+        response.put("message", "Yolcu tipi başarıyla seçildi: " + selectedYolcu.YolcuTipiGoster());
         return response;
     }
 
     @PostMapping("/selectPaymentType")
     public Map<String, String> selectPaymentType(@RequestBody Map<String, String> request) {
         String paymentType = request.get("paymentType");
-        System.out.println("Seçilen ödeme türü: " + paymentType);
+        // ObjectFactory kullanarak ödeme yöntemi nesnesi oluşturuluyor.
+        selectedOdemeYontemi = ObjectFactory.createOdemeYontemi(paymentType);
+        System.out.println("Seçilen ödeme türü: " + selectedOdemeYontemi.OdemeYontemiGoster());
 
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
-        response.put("message", "Ödeme türü başarıyla seçildi: " + paymentType);
+        response.put("message", "Ödeme türü başarıyla seçildi: " + selectedOdemeYontemi.OdemeYontemiGoster());
         return response;
     }
     
@@ -79,15 +87,20 @@ public class StopController {
         return response;
     }
     
-    // Rota hesaplamayı tetikleyecek endpoint (ilk rota hesaplama methodu: UygunUcretHesapla)
     @PostMapping("/calculateRoute")
     public Map<String, String> calculateRoute() {
-        RotaHesaplama rotaHesaplama = new RotaHesaplama(startLat, startLon, destLat, destLon, graphBuilderService);
+        // Rota hesaplamada, ObjectFactory'den oluşturulan yolcu ve ödeme nesneleri de parametre olarak veriliyor.
+        RotaHesaplama rotaHesaplama = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService,
+            selectedYolcu,
+            selectedOdemeYontemi
+        );
         rotaHesaplama.UygunUcretHesapla();
+        
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
         response.put("message", "Rota hesaplama işlemi tamamlandı. Terminalden adımlar incelenebilir.");
         return response;
     }
 }
-
