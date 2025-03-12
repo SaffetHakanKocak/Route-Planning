@@ -142,7 +142,7 @@
         "sonDurak": false,
         "nextStops": [
           {
-            "stopId": "tram_sekapark",
+            "stopId": "tram_halkevi",
             "mesafe": 2.0,
             "sure": 6,
             "ucret": 2.0
@@ -183,11 +183,7 @@
         "lon": 29.925792217254642,
         "sonDurak": true,
         "nextStops": [],
-        "transfer": {
-          "transferStopId": "bus_sekapark",
-          "transferSure": 5,
-          "transferUcret": 0.5
-        }
+        "transfer": null
       }
     ]
   }
