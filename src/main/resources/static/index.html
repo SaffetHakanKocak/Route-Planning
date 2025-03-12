@@ -73,7 +73,6 @@
                 <p>Ödeme türünü seçiniz:</p>
                 <div class="button-group">
                     <button id="nakitBtn" onclick="selectPaymentType('Nakit')">Nakit</button>
-                    <!-- ID güncellendi: "kredikartiBtn" -->
                     <button id="kredikartiBtn" onclick="selectPaymentType('KrediKarti')">Kredi Kartı</button>
                     <button id="kentkartBtn" onclick="selectPaymentType('Kentkart')">Kentkart</button>
                 </div>
@@ -92,6 +91,14 @@
                 <p>Hedef konum seçiniz:</p>
                 <div class="button-group">
                     <button id="selectDestinationPointBtn" onclick="enableDestinationPointSelection()">Hedef Konum Seçiniz</button>
+                </div>
+            </div>
+            
+            <!-- Rota Oluştur Butonu -->
+            <div>
+                <p>Rota oluşturunuz:</p>
+                <div class="button-group">
+                    <button id="calculateRouteBtn" onclick="calculateRoute()">Rota Oluştur</button>
                 </div>
             </div>
         </div>
@@ -133,7 +140,6 @@
                     marker.on('click', function(e) {
                         e.originalEvent.stopPropagation();
                         
-                        // Popup içeriği: İlk satırda durak adı, hemen altında konum bilgileri (enlem, boylam)
                         let stopInfo = `<b>${stop.name}</b><br>` +
                                        `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>` +
                                        `ID: ${stop.id}<br>` +
@@ -146,7 +152,6 @@
                             stopInfo += `<br>Transfer Var`;
                         }
                         
-                        // Her seferinde popup'ı kaldırıp yeniden bağlıyoruz
                         marker.unbindPopup();
                         marker.bindPopup(stopInfo, { offset: [0, -30] });
                         marker.openPopup();
@@ -251,6 +256,19 @@
             });
 
             map.off('click', onMapClickDestination);
+        }
+
+        // Rota Oluştur Butonunun Fonksiyonu
+        function calculateRoute() {
+            fetch('/api/calculateRoute', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+                alert(data.message);
+            })
+            .catch(error => console.error('Rota hesaplama hatası:', error));
         }
     </script>
 </body>
