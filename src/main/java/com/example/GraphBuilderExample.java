@@ -23,11 +23,11 @@ public class GraphBuilderExample implements CommandLineRunner {
     public void run(String... args) {
         try {
             Graph<Stop, RouteEdge> graph = graphBuilderService.buildGraph();
-            System.out.println("Graf Kenarları:");
+            System.out.println("Graf Kenarları (Yönsüz):");
             graph.edgeSet().forEach(edge -> {
                 Stop source = graph.getEdgeSource(edge);
                 Stop target = graph.getEdgeTarget(edge);
-                System.out.println(source.getId() + " -> " + target.getId() + " | " + edge);
+                System.out.println(source.getId() + " - " + target.getId() + " | " + edge);
             });
         } catch (Exception e) {
             e.printStackTrace();

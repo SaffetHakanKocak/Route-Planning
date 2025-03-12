@@ -3,7 +3,7 @@ package com.example;
 import java.util.HashMap;
 import java.util.Map;
 import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultDirectedGraph;
+import org.jgrapht.graph.DefaultUndirectedGraph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,8 +25,8 @@ public class GraphBuilderService {
             stopMap.put(stop.getId(), stop);
         }
 
-        // Grafı oluşturuyoruz: Düğümler durak, kenarlar yollar
-        Graph<Stop, RouteEdge> graph = new DefaultDirectedGraph<>(RouteEdge.class);
+        // Grafı oluşturuyoruz: Düğümler durak, kenarlar yollar (Yönsüz Graf)
+        Graph<Stop, RouteEdge> graph = new DefaultUndirectedGraph<>(RouteEdge.class);
         for (Stop stop : cityData.getDuraklar()) {
             graph.addVertex(stop);
         }
@@ -53,4 +53,3 @@ public class GraphBuilderService {
         return graph;
     }
 }
-
