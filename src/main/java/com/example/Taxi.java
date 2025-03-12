@@ -1,10 +1,15 @@
 package com.example;
 
-public class Taxi {
+// Arac adlı abstract sınıfınız şu şekildeyse örnek:
+// public abstract class Arac {
+//     public abstract String AracTipiGoster();
+// }
+
+public class Taxi extends Arac {
     // Açılış ücreti ve km başına ücret sabitleri
     private double openingFee = 10.0;
     private double costPerKm = 4.0;
-    private double timePerkm = 1.0;
+    private double timePerKm = 1.0; // 1 km için 1 dakika varsayım
 
     public double getOpeningFee() {
         return openingFee;
@@ -14,16 +19,30 @@ public class Taxi {
         return costPerKm;
     }
 
-    public double getTimePerKm()
-    {
-        return timePerkm;
+    public double getTimePerKm() {
+        return timePerKm;
     }
 
+    /**
+     * Verilen km bilgisine göre toplam ücreti hesaplar.
+     * @param km gidilecek mesafe (km cinsinden)
+     * @return açılış ücreti + (km * km başına ücret)
+     */
     public double UcretHesapla(double km) {
         return openingFee + (km * costPerKm);
     }
 
-    public double SureHesapla(double km){
-        return timePerkm * km;
+    /**
+     * Verilen km bilgisine göre toplam süreyi hesaplar.
+     * @param km gidilecek mesafe (km cinsinden)
+     * @return km başına dakika üzerinden toplam süre (dk)
+     */
+    public double SureHesapla(double km) {
+        return timePerKm * km;
+    }
+
+    @Override
+    public String AracTipiGoster() {
+        return "Taxi";
     }
 }

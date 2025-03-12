@@ -21,10 +21,3 @@ class Tramvay extends Arac {
     }
 }
 
-// Taxi sınıfı, Araç sınıfından türetilmiştir.
-class Taxi extends Arac {
-    @Override
-    public String AracTipiGoster() {
-        return "Taxi";
-    }
-}
