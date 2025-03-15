@@ -41,6 +41,12 @@
             "ucret": 2.5
           },
           {
+            "stopId": "bus_kentkonut",
+            "mesafe": 1.0,
+            "sure": 4,
+            "ucret": 1.0
+          },
+          {
             "stopId": "bus_symbolavm",
             "mesafe": 4.0,
             "sure": 12,
@@ -78,6 +84,12 @@
             "mesafe": 5.0,
             "sure": 12,
             "ucret": 4.0
+          },
+          {
+            "stopId": "bus_stadyum",
+            "mesafe": 3.0,
+            "sure": 7,
+            "ucret": 6.0
           }
         ],
         "transfer": {
@@ -113,13 +125,56 @@
         ],
         "transfer": null
       },
-  
+      {
+        "id": "tram_hastane",
+        "name": "Hastane (Tram)",
+        "type": "tram",
+        "lat": 40.7839886411139,
+        "lon": 29.960789680480966,
+        "sonDurak": false,
+        "nextStops": [
+          {
+            "stopId": "tram_otogar",
+            "mesafe": 2.0,
+            "sure": 2,
+            "ucret": 3.0
+          }
+        ],
+        "transfer": null
+      },
+      {
+        "id": "bus_kentkonut",
+        "name": "KentKonut (Bus)",
+        "type": "bus",
+        "lat": 40.77834478285552,
+        "lon": 29.940147399902344,
+        "sonDurak": false,
+        "nextStops": [
+          {
+            "stopId": "bus_otogar",
+            "mesafe": 3.0,
+            "sure": 4,
+            "ucret": 7.0
+          }
+        ],
+        "transfer": null
+      },
       {
         "id": "bus_symbolavm",
         "name": "Symbol AVM (Bus)",
         "type": "bus",
         "lat": 40.7594301188548,
         "lon": 29.97992992401123,
+        "sonDurak": true,
+        "nextStops": [],
+        "transfer": null
+      },
+      {
+        "id": "bus_stadyum",
+        "name": "Stadyum (Bus)",
+        "type": "bus",
+        "lat": 40.772862989692186,
+        "lon": 30.016150474548343,
         "sonDurak": true,
         "nextStops": [],
         "transfer": null
@@ -204,8 +259,15 @@
         "type": "tram",
         "lat": 40.76221470808451,
         "lon": 29.925792217254642,
-        "sonDurak": true,
-        "nextStops": [],
+        "sonDurak": false,
+        "nextStops": [
+          {
+            "stopId": "tram_hastane",
+            "mesafe": 3.5,
+            "sure": 5,
+            "ucret": 4
+          }
+        ],
         "transfer": null
       }
     ]
