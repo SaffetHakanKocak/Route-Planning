@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Durak Haritası</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <!-- 1) Önce Leaflet CSS dosyasını yükleyin -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+
     <style>
         body, html {
             margin: 0;
@@ -107,13 +110,17 @@
         <div id="map"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- 2) Leaflet JS dosyasını, harita kodunuzdan önce ekleyin -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <!-- 3) Haritayı oluşturan kodlarınızı Leaflet yüklendikten sonra çalıştırın -->
     <script>
+        // Harita oluşturma
         const map = L.map('map').setView([40.78259, 29.94628], 13);  // Başlangıç konumu (Otogar)
 
         // Harita katmanı (OpenStreetMap)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
         // Tramvay ikonu
@@ -136,7 +143,6 @@
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
                     let marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
                     
-                    // Marker'a her tıklamada popup içeriğini yeniden oluşturup açıyoruz
                     marker.on('click', function(e) {
                         e.originalEvent.stopPropagation();
                         
