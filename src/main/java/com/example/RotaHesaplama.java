@@ -22,7 +22,7 @@ import org.jgrapht.graph.DefaultWeightedEdge;
 public class RotaHesaplama {
 
     private static final double TAXI_THRESHOLD = 3.0;  // 3 km üzeri taksi
-    private static final int WALK_MIN_PER_KM = 3;      // 1 km = 3 dk yürüyüş
+    private static final int WALK_MIN_PER_KM = 3;        // 1 km = 3 dk yürüyüş
 
     private final double startLat;  // Başlangıç noktasının enlemi
     private final double startLon;  // Başlangıç noktasının boylamı
@@ -301,6 +301,202 @@ public class RotaHesaplama {
             System.out.println("Toplam süre: " + totalTime + " dk");
             System.out.println("Toplam ücret: " + totalCost + " TL");
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // *********************************************************************
+    // EKSTRA ROTA HESAPLAMA METODLARI
+    // *********************************************************************
+
+    // 1. SadeceTaxiRota: Başlangıç noktasından hedef noktasına direkt taksi ile rota hesaplar.
+    public void SadeceTaxiRota() {
+        System.out.println("\n--- Sadece Taxi Rota ---");
+        double distance = distanceBetween(startLat, startLon, destLat, destLon);
+        Taxi taxi = new Taxi();
+        double cost = taxi.UcretHesapla(distance);
+        double taxiTime = taxi.SureHesapla(distance);
+        int time = (int) Math.ceil(taxiTime);
+        System.out.printf("Başlangıç Noktası -> Hedef Noktası: Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                distance, time, cost);
+    }
+
+    // Yardımcı metot: Belirli tipteki (ör. "bus" veya "tram") en yakın durağı bulur.
+    private Stop findNearestStopByType(double lat, double lon, Graph<Stop, DefaultWeightedEdge> graph, String type) {
+        Stop nearest = null;
+        double minDist = Double.MAX_VALUE;
+        for (Stop s : graph.vertexSet()) {
+            if (s.getType().equalsIgnoreCase(type)) {
+                double d = distanceBetween(lat, lon, s.getLat(), s.getLon());
+                if (d < minDist) {
+                    minDist = d;
+                    nearest = s;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    // 2. SadeceOtobusRota: Sadece otobüs durakları üzerinden rota hesaplar.
+    public void SadeceOtobusRota() {
+        try {
+            System.out.println("\n--- Sadece Otobüs Rota ---");
+            // Orijinal grafı al
+            Graph<Stop, RouteEdge> originalGraph = graphBuilderService.buildGraph();
+
+            // Otobüs duraklarını içeren yeni weighted graph oluştur
+            DefaultUndirectedWeightedGraph<Stop, DefaultWeightedEdge> busGraph =
+                    new DefaultUndirectedWeightedGraph<>(DefaultWeightedEdge.class);
+            Map<DefaultWeightedEdge, RouteEdge> busEdgeMap = new HashMap<>();
+
+            // Sadece "bus" tipindeki durakları ekle
+            for (Stop s : originalGraph.vertexSet()) {
+                if (s.getType().equalsIgnoreCase("bus")) {
+                    busGraph.addVertex(s);
+                }
+            }
+            // Sadece otobüs durakları arasında olan kenarları ekle
+            for (RouteEdge re : originalGraph.edgeSet()) {
+                Stop source = originalGraph.getEdgeSource(re);
+                Stop target = originalGraph.getEdgeTarget(re);
+                if (source.getType().equalsIgnoreCase("bus") && target.getType().equalsIgnoreCase("bus")) {
+                    DefaultWeightedEdge dwe = busGraph.addEdge(source, target);
+                    if (dwe != null) {
+                        double weight = re.getUcret();
+                        busGraph.setEdgeWeight(dwe, weight);
+                        busEdgeMap.put(dwe, re);
+                    }
+                }
+            }
+
+            // Başlangıç ve hedef için en yakın otobüs duraklarını bul
+            Stop startBus = findNearestStopByType(startLat, startLon, busGraph, "bus");
+            Stop destBus = findNearestStopByType(destLat, destLon, busGraph, "bus");
+
+            // Başlangıç segmenti (başlangıç noktası -> en yakın otobüs durağı)
+            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, busGraph, "Başlangıç");
+            double totalDistance = startSegment.distance;
+            double totalCost = startSegment.cost;
+            int totalTime = startSegment.time;
+
+            System.out.println("En yakın otobüs durağı (Başlangıç): " + startBus.getName());
+
+            // Otobüs durakları arasındaki rota
+            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp =
+                    new DijkstraShortestPath<>(busGraph);
+            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startBus, destBus);
+            if (path == null) {
+                System.out.println("Başlangıç ve hedef otobüs durağı arasında rota bulunamadı!");
+            } else {
+                System.out.println("\n--- Otobüs Durakları Arası Rota ---");
+                List<Stop> stops = path.getVertexList();
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    Stop current = stops.get(i);
+                    Stop next = stops.get(i + 1);
+                    DefaultWeightedEdge dwe = busGraph.getEdge(current, next);
+                    RouteEdge re = busEdgeMap.get(dwe);
+                    if (re != null) {
+                        totalDistance += re.getMesafe();
+                        totalCost += re.getUcret();
+                        totalTime += re.getSure();
+                        System.out.printf("%s --> %s | Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                                current.getName(), next.getName(), re.getMesafe(), re.getSure(), re.getUcret());
+                    }
+                }
+            }
+            // Hedef segmenti (en yakın otobüs durağı -> hedef nokta)
+            double endSegmentDistance = distanceBetween(destBus.getLat(), destBus.getLon(), destLat, destLon);
+            SegmentResult endSegment = processSegmentStopToPoint(destBus, endSegmentDistance, "Hedef");
+            totalDistance += endSegment.distance;
+            totalCost += endSegment.cost;
+            totalTime += endSegment.time;
+
+            System.out.println("\n--- Sadece Otobüs Rota Özeti ---");
+            System.out.printf("Toplam Mesafe: %.2f km, Toplam Süre: %d dk, Toplam Ücret: %.2f TL\n",
+                    totalDistance, totalTime, totalCost);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 3. SadeceTramvayRota: Sadece tramvay durakları üzerinden rota hesaplar.
+    public void SadeceTramvayRota() {
+        try {
+            System.out.println("\n--- Sadece Tramvay Rota ---");
+            // Orijinal grafı al
+            Graph<Stop, RouteEdge> originalGraph = graphBuilderService.buildGraph();
+
+            // Tramvay duraklarını içeren yeni weighted graph oluştur
+            DefaultUndirectedWeightedGraph<Stop, DefaultWeightedEdge> tramGraph =
+                    new DefaultUndirectedWeightedGraph<>(DefaultWeightedEdge.class);
+            Map<DefaultWeightedEdge, RouteEdge> tramEdgeMap = new HashMap<>();
+
+            // Sadece "tram" tipindeki durakları ekle
+            for (Stop s : originalGraph.vertexSet()) {
+                if (s.getType().equalsIgnoreCase("tram")) {
+                    tramGraph.addVertex(s);
+                }
+            }
+            // Sadece tramvay durakları arasında olan kenarları ekle
+            for (RouteEdge re : originalGraph.edgeSet()) {
+                Stop source = originalGraph.getEdgeSource(re);
+                Stop target = originalGraph.getEdgeTarget(re);
+                if (source.getType().equalsIgnoreCase("tram") && target.getType().equalsIgnoreCase("tram")) {
+                    DefaultWeightedEdge dwe = tramGraph.addEdge(source, target);
+                    if (dwe != null) {
+                        double weight = re.getUcret();
+                        tramGraph.setEdgeWeight(dwe, weight);
+                        tramEdgeMap.put(dwe, re);
+                    }
+                }
+            }
+
+            // Başlangıç ve hedef için en yakın tramvay duraklarını bul
+            Stop startTram = findNearestStopByType(startLat, startLon, tramGraph, "tram");
+            Stop destTram = findNearestStopByType(destLat, destLon, tramGraph, "tram");
+
+            // Başlangıç segmenti (başlangıç noktası -> en yakın tramvay durağı)
+            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, tramGraph, "Başlangıç");
+            double totalDistance = startSegment.distance;
+            double totalCost = startSegment.cost;
+            int totalTime = startSegment.time;
+
+            System.out.println("En yakın tramvay durağı (Başlangıç): " + startTram.getName());
+
+            // Tramvay durakları arasındaki rota
+            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp =
+                    new DijkstraShortestPath<>(tramGraph);
+            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startTram, destTram);
+            if (path == null) {
+                System.out.println("Başlangıç ve hedef tramvay durağı arasında rota bulunamadı!");
+            } else {
+                System.out.println("\n--- Tramvay Durakları Arası Rota ---");
+                List<Stop> stops = path.getVertexList();
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    Stop current = stops.get(i);
+                    Stop next = stops.get(i + 1);
+                    DefaultWeightedEdge dwe = tramGraph.getEdge(current, next);
+                    RouteEdge re = tramEdgeMap.get(dwe);
+                    if (re != null) {
+                        totalDistance += re.getMesafe();
+                        totalCost += re.getUcret();
+                        totalTime += re.getSure();
+                        System.out.printf("%s --> %s | Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                                current.getName(), next.getName(), re.getMesafe(), re.getSure(), re.getUcret());
+                    }
+                }
+            }
+            // Hedef segmenti (en yakın tramvay durağı -> hedef nokta)
+            double endSegmentDistance = distanceBetween(destTram.getLat(), destTram.getLon(), destLat, destLon);
+            SegmentResult endSegment = processSegmentStopToPoint(destTram, endSegmentDistance, "Hedef");
+            totalDistance += endSegment.distance;
+            totalCost += endSegment.cost;
+            totalTime += endSegment.time;
+
+            System.out.println("\n--- Sadece Tramvay Rota Özeti ---");
+            System.out.printf("Toplam Mesafe: %.2f km, Toplam Süre: %d dk, Toplam Ücret: %.2f TL\n",
+                    totalDistance, totalTime, totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }

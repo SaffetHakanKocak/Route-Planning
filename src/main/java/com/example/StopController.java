@@ -99,6 +99,9 @@ public class StopController {
         rotaHesaplama.UygunUcretHesapla();
         rotaHesaplama.UygunZamanHesapla();
         rotaHesaplama.UygunKmHesapla();
+        rotaHesaplama.SadeceOtobusRota();
+        rotaHesaplama.SadeceTramvayRota();
+        rotaHesaplama.SadeceTaxiRota();
         
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
