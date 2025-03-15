@@ -8,7 +8,7 @@ public abstract class Yolcu {
 // Ogrenci sınıfı, Yolcu'dan türetilmiş ve Indirim arayüzünü implement etmiştir.
 class Ogrenci extends Yolcu implements Indirim {
 
-    private double indirimYuzdesi = 0.10;
+    private double indirimYuzdesi = 0.50;
 
     @Override
     public String YolcuTipiGoster() {
@@ -29,7 +29,7 @@ class Ogrenci extends Yolcu implements Indirim {
 // Yasli sınıfı, Yolcu'dan türetilmiş ve Indirim arayüzünü implement etmiştir.
 class Yasli extends Yolcu implements Indirim {
 
-    private double indirimYuzdesi = 0.20;
+    private double indirimYuzdesi = 0.30;
 
     @Override
     public String YolcuTipiGoster() {

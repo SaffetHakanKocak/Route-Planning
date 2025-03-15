@@ -138,7 +138,9 @@ public class RotaHesaplama {
             System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
             System.out.println("Toplam süre: " + totalTime + " dk");
             System.out.println("Toplam ücret: " + totalCost + " TL");
-
+            
+            // Ek indirim/zam uygulamalarını terminale yazdır
+            applyAdjustments(totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -219,7 +221,9 @@ public class RotaHesaplama {
             System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
             System.out.println("Toplam süre: " + totalTime + " dk");
             System.out.println("Toplam ücret: " + totalCost + " TL");
-
+            
+            // Ek indirim/zam uygulamalarını terminale yazdır
+            applyAdjustments(totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -300,7 +304,9 @@ public class RotaHesaplama {
             System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
             System.out.println("Toplam süre: " + totalTime + " dk");
             System.out.println("Toplam ücret: " + totalCost + " TL");
-
+            
+            // Ek indirim/zam uygulamalarını terminale yazdır
+            applyAdjustments(totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -320,6 +326,8 @@ public class RotaHesaplama {
         int time = (int) Math.ceil(taxiTime);
         System.out.printf("Başlangıç Noktası -> Hedef Noktası: Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
                 distance, time, cost);
+        // Ek indirim/zam uygulamalarını terminale yazdır
+        applyAdjustments(cost);
     }
 
     // Yardımcı metot: Belirli tipteki (ör. "bus" veya "tram") en yakın durağı bulur.
@@ -415,6 +423,8 @@ public class RotaHesaplama {
             System.out.println("\n--- Sadece Otobüs Rota Özeti ---");
             System.out.printf("Toplam Mesafe: %.2f km, Toplam Süre: %d dk, Toplam Ücret: %.2f TL\n",
                     totalDistance, totalTime, totalCost);
+            // Ek indirim/zam uygulamalarını terminale yazdır
+            applyAdjustments(totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -497,6 +507,8 @@ public class RotaHesaplama {
             System.out.println("\n--- Sadece Tramvay Rota Özeti ---");
             System.out.printf("Toplam Mesafe: %.2f km, Toplam Süre: %d dk, Toplam Ücret: %.2f TL\n",
                     totalDistance, totalTime, totalCost);
+            // Ek indirim/zam uygulamalarını terminale yazdır
+            applyAdjustments(totalCost);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -675,5 +687,32 @@ public class RotaHesaplama {
             this.time = time;
             this.stop = stop;
         }
+    }
+    
+    // -------------------------------------------------------------------------
+    // Ek: Yolcu ve Ödeme Yöntemi bazında son ücret ayarlaması
+    // -------------------------------------------------------------------------
+    private void applyAdjustments(double baseCost) {
+        double adjustedCost = baseCost;
+        // Yolcu bazında indirim (Ogrenci veya Yasli implement eder)
+        if (yolcu instanceof Indirim) {
+            double discount = ((Indirim) yolcu).IndirimUygula(baseCost);
+            adjustedCost -= discount;
+            System.out.printf("Yolcu %s olduğundan dolayı %.2f TL indirim uygulandı.\n", 
+                              yolcu.YolcuTipiGoster(), discount);
+        }
+        // Ödeme yöntemi bazında: KentKart -> indirim, KrediKarti -> zam
+        if (odemeYontemi instanceof KentKart) {
+            double discount = ((Indirim) odemeYontemi).IndirimUygula(adjustedCost);
+            adjustedCost -= discount;
+            System.out.printf("Ödeme yöntemi Kent Kart olduğundan dolayı %.2f TL indirim uygulandı.\n", 
+                              discount);
+        } else if (odemeYontemi instanceof KrediKarti) {
+            double zam = ((KrediKarti) odemeYontemi).ZamUygula(adjustedCost);
+            adjustedCost += zam;
+            System.out.printf("Ödeme yöntemi Kredi Kartı olduğundan dolayı %.2f TL zam uygulandı.\n", 
+                              zam);
+        }
+        System.out.printf("Sonuç olarak, ayarlanmış toplam ücret: %.2f TL\n", adjustedCost);
     }
 }
