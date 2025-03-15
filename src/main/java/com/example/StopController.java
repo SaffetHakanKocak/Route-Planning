@@ -97,6 +97,8 @@ public class StopController {
             selectedOdemeYontemi
         );
         rotaHesaplama.UygunUcretHesapla();
+        rotaHesaplama.UygunZamanHesapla();
+        rotaHesaplama.UygunKmHesapla();
         
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");

@@ -1,25 +1,54 @@
 package com.example;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.jgrapht.Graph;
 import org.jgrapht.GraphPath;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
+import org.jgrapht.graph.DefaultUndirectedWeightedGraph;
+import org.jgrapht.graph.DefaultWeightedEdge;
 
+/**
+ * Bu sınıf, başlangıç ve varış noktaları arasındaki en uygun rotayı
+ * 3 farklı kritere göre hesaplayabilir:
+ *  - UygunUcretHesapla: Ücret bazlı
+ *  - UygunZamanHesapla: Süre bazlı
+ *  - UygunKmHesapla: Mesafe bazlı
+ *
+ * Ayrıca başlangıç/hedef segmentlerinde taksi veya yürüyüş hesaplaması da yapar.
+ */
 public class RotaHesaplama {
+
     private static final double TAXI_THRESHOLD = 3.0;  // 3 km üzeri taksi
     private static final int WALK_MIN_PER_KM = 3;      // 1 km = 3 dk yürüyüş
-    private final double startLat;
-    private final double startLon;
-    private final double destLat;
-    private final double destLon;
+
+    private final double startLat;  // Başlangıç noktasının enlemi
+    private final double startLon;  // Başlangıç noktasının boylamı
+    private final double destLat;   // Varış noktasının enlemi
+    private final double destLon;   // Varış noktasının boylamı
+
     private final GraphBuilderService graphBuilderService;
     private final Yolcu yolcu;                // Polimorfik yolcu nesnesi
     private final OdemeYontemi odemeYontemi;  // Polimorfik ödeme yöntemi nesnesi
 
-    // Constructor
-    public RotaHesaplama(double startLat, double startLon, double destLat, double destLon,
-                         GraphBuilderService graphBuilderService, Yolcu yolcu, OdemeYontemi odemeYontemi) {
+    /**
+     * WeightedGraph üzerinde "DefaultWeightedEdge" --> "RouteEdge" eşleştirmesi tutmak için
+     * bir map kullanıyoruz. Böylece, Dijkstra yolunda ilerlerken gerçekte hangi RouteEdge
+     * ile karşılaştığımızı bulup mesafe, süre ve ücreti ekrana yazabiliriz.
+     */
+    private final Map<DefaultWeightedEdge, RouteEdge> edgeMap = new HashMap<>();
+
+    /**
+     * Constructor
+     */
+    public RotaHesaplama(double startLat, double startLon,
+                         double destLat, double destLon,
+                         GraphBuilderService graphBuilderService,
+                         Yolcu yolcu,
+                         OdemeYontemi odemeYontemi) {
+
         this.startLat = startLat;
         this.startLon = startLon;
         this.destLat = destLat;
@@ -29,85 +58,70 @@ public class RotaHesaplama {
         this.odemeYontemi = odemeYontemi;
     }
 
-    /**
-     * Ana rota hesaplama metodu.
-     * 1) Başlangıç noktası -> En yakın durak
-     * 2) Hedef noktası -> En yakın durak
-     * 3) Dijkstra ile bu iki durak arasındaki en uygun ücretli rota
-     * 4) Hedef durağından hedef noktasına son segment
-     * 5) Toplam değerleri yazdırma
-     */
+    // -------------------------------------------------------------------------
+    // 1) ÜCRETE GÖRE ROTA HESAPLAMA
+    // -------------------------------------------------------------------------
     public void UygunUcretHesapla() {
         try {
-            // 0) Grafı oluştur
-            Graph<Stop, RouteEdge> graph = graphBuilderService.buildGraph();
+            // 1) WeightedGraph'i "cost" parametresiyle oluşturuyoruz
+            Graph<Stop, DefaultWeightedEdge> wgraph = buildWeightedGraph("cost");
 
-            // Toplam değerleri saklayacak değişkenler
-            double totalDistance = 0.0;
-            double totalCost = 0.0;
-            int totalTime = 0; // dakika
-
-            // 1) Başlangıç segmenti: Başlangıç Noktası -> En Yakın Durak
+            // 2) Başlangıç segmenti (Başlangıç Noktası -> En Yakın Durak)
             SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(
-                startLat, startLon, graph, "Başlangıç"
+                startLat, startLon, wgraph, "Başlangıç"
             );
-            totalDistance += startSegment.distance;
-            totalCost     += startSegment.cost;
-            totalTime     += startSegment.time;
 
-            // 2) Hedef segmenti (yalnızca durak tespiti için): Hedef Noktası -> En Yakın Durak
-            // Bu aşamada, taksi/yürüyüş hesabını SON segmentte yapacağız (adım 4).
-            // Burada sadece "hedefe en yakın durak" bilgisini bulmak istiyoruz.
-            Stop nearestDestStop = findNearestStop(destLat, destLon, graph);
+            // 3) Hedefe en yakın durağı bul
+            Stop nearestDestStop = findNearestStop(destLat, destLon, wgraph);
             System.out.println("\nHedef noktasına en yakın durak: " + nearestDestStop.getName()
                 + " (lat: " + nearestDestStop.getLat() + ", lon: " + nearestDestStop.getLon() + ")");
 
-            // 3) Dijkstra: Başlangıç durağından hedef durağına en uygun ücretli rota
-            GraphPath<Stop, RouteEdge> path = DijkstraShortestPath.findPathBetween(
-                graph,
-                startSegment.stop,     // başlarken bulunduğumuz durak
-                nearestDestStop        // hedefe en yakın durak
-            );
+            // 4) DijkstraShortestPath ile en düşük ücretli rota
+            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp =
+                new DijkstraShortestPath<>(wgraph);
+            GraphPath<Stop, DefaultWeightedEdge> path =
+                dsp.getPath(startSegment.stop, nearestDestStop);
+
+            // Toplam değerler
+            double totalDistance = startSegment.distance;
+            double totalCost = startSegment.cost;
+            int totalTime = startSegment.time;
 
             if (path == null) {
                 System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
             } else {
                 System.out.println("\n--- Duraklar Arası En Uygun Ücretli Rota (Doğru Sıralama) ---");
 
-                // Düğümleri gerçek seyahat sırasıyla alıyoruz:
-                List<Stop> vertexList = path.getVertexList();
+                // Dijkstra sonucu: durak listesi
+                List<Stop> stops = path.getVertexList();
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    Stop current = stops.get(i);
+                    Stop next = stops.get(i + 1);
 
-                // Sıradaki durak çiftleri üzerinden kenar bilgilerini toplayalım
-                for (int i = 0; i < vertexList.size() - 1; i++) {
-                    Stop current = vertexList.get(i);
-                    Stop next = vertexList.get(i + 1);
+                    // WeightedGraph üzerinde DefaultWeightedEdge
+                    DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
+                    if (dwe != null) {
+                        // edgeMap ile asıl RouteEdge nesnesini bulalım
+                        RouteEdge re = edgeMap.get(dwe);
+                        if (re != null) {
+                            double mesafe = re.getMesafe();
+                            double ucret  = re.getUcret();
+                            int sure      = re.getSure();
 
-                    // Kenarı alalım. Yönsüz graf kullanıyorsanız ters de olabilir; kontrol edebilirsiniz.
-                    RouteEdge edge = graph.getEdge(current, next);
-                    if (edge == null) {
-                        // Eğer yönsüz graf kullanıyorsanız, getEdge(next, current) olabilir.
-                        edge = graph.getEdge(next, current);
-                    }
+                            totalDistance += mesafe;
+                            totalCost     += ucret;
+                            totalTime     += sure;
 
-                    if (edge != null) {
-                        double mesafe = edge.getMesafe();
-                        int sure = edge.getSure();
-                        double ucret = edge.getUcret();
-
-                        totalDistance += mesafe;
-                        totalTime     += sure;
-                        totalCost     += ucret;
-
-                        System.out.println(
-                            current.getName() + " --> " + next.getName() +
-                            " | Mesafe: " + mesafe + " km, Süre: " + sure +
-                            " dk, Ücret: " + ucret + " TL"
-                        );
+                            System.out.printf(
+                                "%s --> %s | Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                                current.getName(), next.getName(), mesafe, sure, ucret
+                            );
+                        }
                     }
                 }
             }
 
-            // 4) Hedef segmenti: Hedef durağından Hedef Noktası
+            // 5) Hedef segmenti (Hedef Durağı -> Hedef Noktası)
             double endSegmentDistance = distanceBetween(
                 nearestDestStop.getLat(), nearestDestStop.getLon(),
                 destLat, destLon
@@ -119,7 +133,7 @@ public class RotaHesaplama {
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
 
-            // 5) Özet Bilgileri Yazdır
+            // 6) Özet Bilgileri Yazdır
             System.out.println("\n--- Rota Özeti ---");
             System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
             System.out.println("Toplam süre: " + totalTime + " dk");
@@ -130,50 +144,268 @@ public class RotaHesaplama {
         }
     }
 
-    /**
-     * Başlangıç veya herhangi bir (lat, lon) noktasından en yakın durağa
-     * 3 km kontrolü yaparak taksi veya yürüyüş hesabı yapan metod.
-     */
-    private SegmentResult processSegmentBetweenPointAndNearestStop(
-            double lat, double lon, Graph<Stop, RouteEdge> graph, String segmentName) {
+    // -------------------------------------------------------------------------
+    // 2) SÜREYE (ZAMAN) GÖRE ROTA HESAPLAMA
+    // -------------------------------------------------------------------------
+    public void UygunZamanHesapla() {
+        try {
+            // 1) WeightedGraph'i "time" parametresiyle oluşturuyoruz
+            Graph<Stop, DefaultWeightedEdge> wgraph = buildWeightedGraph("time");
 
-        // En yakın durağı bul
-        Stop nearestStop = findNearestStop(lat, lon, graph);
+            // 2) Başlangıç segmenti
+            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(
+                startLat, startLon, wgraph, "Başlangıç"
+            );
+
+            // 3) Hedefe en yakın durağı bul
+            Stop nearestDestStop = findNearestStop(destLat, destLon, wgraph);
+            System.out.println("\nHedef noktasına en yakın durak: " + nearestDestStop.getName()
+                + " (lat: " + nearestDestStop.getLat() + ", lon: " + nearestDestStop.getLon() + ")");
+
+            // 4) DijkstraShortestPath ile en düşük süreli rota
+            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp =
+                new DijkstraShortestPath<>(wgraph);
+            GraphPath<Stop, DefaultWeightedEdge> path =
+                dsp.getPath(startSegment.stop, nearestDestStop);
+
+            double totalDistance = startSegment.distance;
+            double totalCost = startSegment.cost;
+            int totalTime = startSegment.time;
+
+            if (path == null) {
+                System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
+            } else {
+                System.out.println("\n--- Duraklar Arası En Uygun Zamanlı Rota (Doğru Sıralama) ---");
+
+                List<Stop> stops = path.getVertexList();
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    Stop current = stops.get(i);
+                    Stop next = stops.get(i + 1);
+
+                    DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
+                    if (dwe != null) {
+                        RouteEdge re = edgeMap.get(dwe);
+                        if (re != null) {
+                            double mesafe = re.getMesafe();
+                            double ucret  = re.getUcret();
+                            int sure      = re.getSure();
+
+                            totalDistance += mesafe;
+                            totalCost     += ucret;
+                            totalTime     += sure;
+
+                            System.out.printf(
+                                "%s --> %s | Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                                current.getName(), next.getName(), mesafe, sure, ucret
+                            );
+                        }
+                    }
+                }
+            }
+
+            // 5) Hedef segmenti
+            double endSegmentDistance = distanceBetween(
+                nearestDestStop.getLat(), nearestDestStop.getLon(),
+                destLat, destLon
+            );
+            SegmentResult endSegment = processSegmentStopToPoint(
+                nearestDestStop, endSegmentDistance, "Hedef"
+            );
+            totalDistance += endSegment.distance;
+            totalCost     += endSegment.cost;
+            totalTime     += endSegment.time;
+
+            System.out.println("\n--- Rota Özeti ---");
+            System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
+            System.out.println("Toplam süre: " + totalTime + " dk");
+            System.out.println("Toplam ücret: " + totalCost + " TL");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3) MESAFEYE GÖRE ROTA HESAPLAMA
+    // -------------------------------------------------------------------------
+    public void UygunKmHesapla() {
+        try {
+            // 1) WeightedGraph'i "distance" parametresiyle oluşturuyoruz
+            Graph<Stop, DefaultWeightedEdge> wgraph = buildWeightedGraph("distance");
+
+            // 2) Başlangıç segmenti
+            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(
+                startLat, startLon, wgraph, "Başlangıç"
+            );
+
+            // 3) Hedef durağı
+            Stop nearestDestStop = findNearestStop(destLat, destLon, wgraph);
+            System.out.println("\nHedef noktasına en yakın durak: " + nearestDestStop.getName()
+                + " (lat: " + nearestDestStop.getLat() + ", lon: " + nearestDestStop.getLon() + ")");
+
+            // 4) DijkstraShortestPath ile en kısa mesafeli rota
+            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp =
+                new DijkstraShortestPath<>(wgraph);
+            GraphPath<Stop, DefaultWeightedEdge> path =
+                dsp.getPath(startSegment.stop, nearestDestStop);
+
+            double totalDistance = startSegment.distance;
+            double totalCost = startSegment.cost;
+            int totalTime = startSegment.time;
+
+            if (path == null) {
+                System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
+            } else {
+                System.out.println("\n--- Duraklar Arası En Uygun Mesafeli Rota (Doğru Sıralama) ---");
+
+                List<Stop> stops = path.getVertexList();
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    Stop current = stops.get(i);
+                    Stop next = stops.get(i + 1);
+
+                    DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
+                    if (dwe != null) {
+                        RouteEdge re = edgeMap.get(dwe);
+                        if (re != null) {
+                            double mesafe = re.getMesafe();
+                            double ucret  = re.getUcret();
+                            int sure      = re.getSure();
+
+                            totalDistance += mesafe;
+                            totalCost     += ucret;
+                            totalTime     += sure;
+
+                            System.out.printf(
+                                "%s --> %s | Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL\n",
+                                current.getName(), next.getName(), mesafe, sure, ucret
+                            );
+                        }
+                    }
+                }
+            }
+
+            // 5) Hedef segmenti
+            double endSegmentDistance = distanceBetween(
+                nearestDestStop.getLat(), nearestDestStop.getLon(),
+                destLat, destLon
+            );
+            SegmentResult endSegment = processSegmentStopToPoint(
+                nearestDestStop, endSegmentDistance, "Hedef"
+            );
+            totalDistance += endSegment.distance;
+            totalCost     += endSegment.cost;
+            totalTime     += endSegment.time;
+
+            System.out.println("\n--- Rota Özeti ---");
+            System.out.println("Toplam gidilen mesafe: " + totalDistance + " km");
+            System.out.println("Toplam süre: " + totalTime + " dk");
+            System.out.println("Toplam ücret: " + totalCost + " TL");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // WeightedGraph Oluşturma: "cost" / "time" / "distance" parametresine göre
+    // -------------------------------------------------------------------------
+    private Graph<Stop, DefaultWeightedEdge> buildWeightedGraph(String weightType) throws Exception {
+        // Orijinal graf (Stop, RouteEdge)
+        Graph<Stop, RouteEdge> originalGraph = graphBuilderService.buildGraph();
+
+        // WeightedGraph: Stop düğümleri, DefaultWeightedEdge kenarları
+        DefaultUndirectedWeightedGraph<Stop, DefaultWeightedEdge> wgraph =
+            new DefaultUndirectedWeightedGraph<>(DefaultWeightedEdge.class);
+
+        // edgeMap'i temizliyoruz (her seferinde yeni graf)
+        edgeMap.clear();
+
+        // 1) Tüm durakları ekle
+        for (Stop s : originalGraph.vertexSet()) {
+            wgraph.addVertex(s);
+        }
+
+        // 2) Tüm kenarları ekle ve ağırlıklarını ayarla
+        for (RouteEdge re : originalGraph.edgeSet()) {
+            Stop source = originalGraph.getEdgeSource(re);
+            Stop target = originalGraph.getEdgeTarget(re);
+
+            // WeightedGraph'e kenar ekle
+            DefaultWeightedEdge dwe = wgraph.addEdge(source, target);
+            if (dwe != null) {
+                // Kenar ağırlığı:
+                double weight;
+                switch (weightType) {
+                    case "time":
+                        weight = re.getSure();      // int -> double
+                        break;
+                    case "distance":
+                        weight = re.getMesafe();   // double
+                        break;
+                    case "cost":
+                    default:
+                        weight = re.getUcret();    // double
+                        break;
+                }
+                wgraph.setEdgeWeight(dwe, weight);
+
+                // edgeMap'e, bu DefaultWeightedEdge'in asıl RouteEdge verisini koyuyoruz
+                edgeMap.put(dwe, re);
+            }
+        }
+
+        return wgraph;
+    }
+
+    // -------------------------------------------------------------------------
+    // Başlangıç Noktası -> En Yakın Durak segmenti (taksi veya yürüyüş)
+    // -------------------------------------------------------------------------
+    private SegmentResult processSegmentBetweenPointAndNearestStop(
+            double lat, double lon,
+            Graph<Stop, DefaultWeightedEdge> wgraph,
+            String segmentName) {
+
+        // 1) En yakın durağı bul
+        Stop nearestStop = findNearestStop(lat, lon, wgraph);
         double distance  = distanceBetween(lat, lon, nearestStop.getLat(), nearestStop.getLon());
 
-        System.out.println(segmentName + " noktasına en yakın durak: " + nearestStop.getName()
-            + " (Mesafe: " + distance + " km)");
+        System.out.printf(
+            "%s noktasına en yakın durak: %s (Mesafe: %.2f km)\n",
+            segmentName, nearestStop.getName(), distance
+        );
 
         double cost = 0.0;
         int time = 0;
 
+        // 2) 3 km üzeriyse taksi, değilse yürüyüş
         if (distance > TAXI_THRESHOLD) {
-            // Taksi kullan
             Taxi taxi = new Taxi();
             cost = taxi.UcretHesapla(distance);
             double taxiTime = taxi.SureHesapla(distance);
             time = (int) Math.ceil(taxiTime);
 
-            System.out.println(segmentName + " noktasından " + nearestStop.getName()
-                + " durağına taksi ile gidiliyor. Mesafe: " + distance
-                + " km, Ücret: " + cost + " TL, Süre: " + time + " dk");
+            System.out.printf(
+                "%s noktasından %s durağına taksi ile gidiliyor. Mesafe: %.2f km, Ücret: %.2f TL, Süre: %d dk\n",
+                segmentName, nearestStop.getName(), distance, cost, time
+            );
 
         } else {
-            // Yürüyerek gidilir
             time = (int) Math.ceil(distance * WALK_MIN_PER_KM);
-            System.out.println(segmentName + " noktasından " + nearestStop.getName()
-                + " durağına yürüyerek gidiliyor. Mesafe: " + distance
-                + " km, Süre: " + time + " dk");
+            System.out.printf(
+                "%s noktasından %s durağına yürüyerek gidiliyor. Mesafe: %.2f km, Süre: %d dk\n",
+                segmentName, nearestStop.getName(), distance, time
+            );
         }
 
         return new SegmentResult(distance, cost, time, nearestStop);
     }
 
-    /**
-     * Hedef durağından hedef (lat, lon) konumuna yine 3 km kontrolüyle
-     * taksi veya yürüyüş hesabı yapan metod.
-     */
-    private SegmentResult processSegmentStopToPoint(Stop stop, double distance, String segmentName) {
+    // -------------------------------------------------------------------------
+    // Hedef Durağı -> Hedef Noktası segmenti (taksi veya yürüyüş)
+    // -------------------------------------------------------------------------
+    private SegmentResult processSegmentStopToPoint(
+            Stop stop, double distance, String segmentName) {
+
         double cost = 0.0;
         int time = 0;
 
@@ -183,29 +415,30 @@ public class RotaHesaplama {
             double taxiTime = taxi.SureHesapla(distance);
             time = (int) Math.ceil(taxiTime);
 
-            System.out.println(
-                stop.getName() + " durağından " + segmentName + " noktasına taksi ile gidiliyor. " +
-                "Mesafe: " + distance + " km, Ücret: " + cost + " TL, Süre: " + time + " dk"
+            System.out.printf(
+                "%s durağından %s noktasına taksi ile gidiliyor. Mesafe: %.2f km, Ücret: %.2f TL, Süre: %d dk\n",
+                stop.getName(), segmentName, distance, cost, time
             );
+
         } else {
             time = (int) Math.ceil(distance * WALK_MIN_PER_KM);
-            System.out.println(
-                stop.getName() + " durağından " + segmentName + " noktasına yürüyerek gidiliyor. " +
-                "Mesafe: " + distance + " km, Süre: " + time + " dk"
+            System.out.printf(
+                "%s durağından %s noktasına yürüyerek gidiliyor. Mesafe: %.2f km, Süre: %d dk\n",
+                stop.getName(), segmentName, distance, time
             );
         }
 
         return new SegmentResult(distance, cost, time, stop);
     }
 
-    /**
-     * Graf üzerindeki tüm duraklar arasından, belirtilen (lat, lon) noktasına en yakın olanı döndürür.
-     */
-    private Stop findNearestStop(double lat, double lon, Graph<Stop, RouteEdge> graph) {
+    // -------------------------------------------------------------------------
+    // WeightedGraph içinde en yakın durağı bulmak
+    // -------------------------------------------------------------------------
+    private Stop findNearestStop(double lat, double lon, Graph<Stop, DefaultWeightedEdge> wgraph) {
         Stop nearest = null;
         double minDist = Double.MAX_VALUE;
 
-        for (Stop s : graph.vertexSet()) {
+        for (Stop s : wgraph.vertexSet()) {
             double d = distanceBetween(lat, lon, s.getLat(), s.getLon());
             if (d < minDist) {
                 minDist = d;
@@ -215,36 +448,30 @@ public class RotaHesaplama {
         return nearest;
     }
 
-    /**
-     * Haversine formülü ile iki koordinat arasındaki mesafeyi (km) hesaplar.
-     */
+    // -------------------------------------------------------------------------
+    // Haversine formülü ile iki koordinat arasındaki mesafeyi (km) hesaplar
+    // -------------------------------------------------------------------------
     private double distanceBetween(double lat1, double lon1, double lat2, double lon2) {
         final double R = 6371.0; // Dünya yarıçapı (km)
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
-        double lat1Rad = Math.toRadians(lat1);
-        double lat2Rad = Math.toRadians(lat2);
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                 + Math.cos(lat1Rad) * Math.cos(lat2Rad)
+                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                  * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.asin(Math.sqrt(a));
 
         return R * c;
     }
 
-    /**
-     * Segment sonuçlarını tutmak için özel iç sınıf.
-     * distance: km cinsinden,
-     * cost: TL cinsinden,
-     * time: dakika cinsinden,
-     * stop: varılan durak
-     */
+    // -------------------------------------------------------------------------
+    // Segment Sonuçları
+    // -------------------------------------------------------------------------
     private static class SegmentResult {
-        public double distance;
-        public double cost;
-        public int time;
-        public Stop stop;
+        public double distance; // km
+        public double cost;     // TL
+        public int time;        // dk
+        public Stop stop;       // Varılan durak
 
         public SegmentResult(double distance, double cost, int time, Stop stop) {
             this.distance = distance;

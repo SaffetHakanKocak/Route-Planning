@@ -47,6 +47,12 @@
             "ucret": 3.5
           },
           {
+            "stopId": "bus_arizli",
+            "mesafe": 4.0,
+            "sure": 8,
+            "ucret": 5.0
+          },
+          {
             "stopId": "bus_41burda",
             "mesafe": 4.5,
             "sure": 14,
@@ -88,6 +94,23 @@
         "lon": 29.920749664306644,
         "sonDurak": true,
         "nextStops": [],
+        "transfer": null
+      },
+      {
+        "id": "bus_arizli",
+        "name": "Arizli (Bus)",
+        "type": "bus",
+        "lat": 40.80158033332406,
+        "lon": 29.909000737446046,
+        "sonDurak": false,
+        "nextStops": [
+          {
+            "stopId": "bus_umuttepe",
+            "mesafe": 2.0,
+            "sure": 4,
+            "ucret": 3.0
+          }
+        ],
         "transfer": null
       },
   
