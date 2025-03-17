@@ -14,13 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class StopController {
-    // Başlangıç ve hedef koordinatları
     private double startLat;
     private double startLon;
     private double destLat;
     private double destLon;
 
-    // Seçilen yolcu ve ödeme nesneleri
     private Yolcu selectedYolcu;
     private OdemeYontemi selectedOdemeYontemi;
 
@@ -42,10 +40,8 @@ public class StopController {
     @PostMapping("/selectPassengerType")
     public Map<String, String> selectPassengerType(@RequestBody Map<String, String> request) {
         String passengerType = request.get("passengerType");
-        // ObjectFactory kullanarak yolcu nesnesi oluşturuluyor.
         selectedYolcu = ObjectFactory.createYolcu(passengerType);
         System.out.println("Seçilen yolcu tipi: " + selectedYolcu.YolcuTipiGoster());
-
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
         response.put("message", "Yolcu tipi başarıyla seçildi: " + selectedYolcu.YolcuTipiGoster());
@@ -55,10 +51,8 @@ public class StopController {
     @PostMapping("/selectPaymentType")
     public Map<String, String> selectPaymentType(@RequestBody Map<String, String> request) {
         String paymentType = request.get("paymentType");
-        // ObjectFactory kullanarak ödeme yöntemi nesnesi oluşturuluyor.
         selectedOdemeYontemi = ObjectFactory.createOdemeYontemi(paymentType);
         System.out.println("Seçilen ödeme türü: " + selectedOdemeYontemi.OdemeYontemiGoster());
-
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
         response.put("message", "Ödeme türü başarıyla seçildi: " + selectedOdemeYontemi.OdemeYontemiGoster());
@@ -87,14 +81,12 @@ public class StopController {
         return response;
     }
     
+    // Orijinal calculateRoute: Konsola tüm rota hesaplamalarını yazdırır.
     @PostMapping("/calculateRoute")
     public Map<String, String> calculateRoute() {
-        // Rota hesaplamada, ObjectFactory'den oluşturulan yolcu ve ödeme nesneleri de parametre olarak veriliyor.
         RotaHesaplama rotaHesaplama = new RotaHesaplama(
             startLat, startLon, destLat, destLon,
-            graphBuilderService,
-            selectedYolcu,
-            selectedOdemeYontemi
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
         );
         rotaHesaplama.UygunUcretHesapla();
         rotaHesaplama.UygunZamanHesapla();
@@ -102,10 +94,89 @@ public class StopController {
         rotaHesaplama.SadeceOtobusRota();
         rotaHesaplama.SadeceTramvayRota();
         rotaHesaplama.SadeceTaxiRota();
-        
         Map<String, String> response = new HashMap<>();
         response.put("status", "success");
-        response.put("message", "Rota hesaplama işlemi tamamlandı. Terminalden adımlar incelenebilir.");
+        response.put("message", "Tüm rota hesaplamaları konsola yazıldı.");
+        return response;
+    }
+
+    // Dinamik HTML döndüren endpoint'ler:
+
+    @PostMapping("/calculateCheapestRoute")
+    public Map<String, Object> calculateCheapestRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getUygunUcretHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
+        return response;
+    }
+
+    @PostMapping("/calculateFastestRoute")
+    public Map<String, Object> calculateFastestRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getUygunZamanHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
+        return response;
+    }
+
+    @PostMapping("/calculateShortestRoute")
+    public Map<String, Object> calculateShortestRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getUygunMesafeHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
+        return response;
+    }
+
+    @PostMapping("/calculateBusRoute")
+    public Map<String, Object> calculateBusRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getSadeceOtobusHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
+        return response;
+    }
+
+    @PostMapping("/calculateTramRoute")
+    public Map<String, Object> calculateTramRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getSadeceTramvayHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
+        return response;
+    }
+
+    @PostMapping("/calculateTaxiRoute")
+    public Map<String, Object> calculateTaxiRoute() {
+        RotaHesaplama rh = new RotaHesaplama(
+            startLat, startLon, destLat, destLon,
+            graphBuilderService, selectedYolcu, selectedOdemeYontemi
+        );
+        String routeHtml = rh.getSadeceTaxiHtml();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("routeHtml", routeHtml);
         return response;
     }
 }

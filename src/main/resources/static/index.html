@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Durak Haritası</title>
-
-    <!-- 1) Leaflet CSS dosyasını yükleyin -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-
     <style>
+        /* Sayfa ve temel stiller */
         body, html {
             margin: 0;
             padding: 0;
@@ -24,6 +22,7 @@
             background-color: #f4f4f4;
             padding: 20px;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
         }
         .sidebar h2 {
             margin-top: 0;
@@ -53,11 +52,32 @@
             width: 75%;
             height: 100vh;
         }
+
+        /* Rota bilgilerini göstereceğimiz alan */
+        #routeResult {
+            margin-top: 20px;
+            /* Eklenen stiller: Dinamik HTML çıktısının okunaklı görünmesi için */
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        /* ====== EKLENDİ: Java tarafında kullanılan arka plan sınıfları ====== */
+        .blue-bgc {
+            background-color: #e3f2fd; /* Mavi tonlu arka plan */
+        }
+        .orange-bgc {
+            background-color: #ffe0b2; /* Turuncu tonlu arka plan */
+        }
+        .purple-bgc {
+            background-color: #f3e5f5; /* Mor tonlu arka plan */
+        }
+
+        /* İsteğe bağlı daha fazla stil ekleyebilirsiniz */
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Sol Taraf (Sidebar) -->
+        <!-- Sidebar -->
         <div class="sidebar">
             <h2>Seçenekler</h2>
 
@@ -96,44 +116,53 @@
                     <button id="selectDestinationPointBtn" onclick="enableDestinationPointSelection()">Hedef Konum Seçiniz</button>
                 </div>
             </div>
-            
-            <!-- Rota Oluştur Butonu -->
+
+            <!-- Orijinal Rota Oluştur Butonu -->
             <div>
                 <p>Rota oluşturunuz:</p>
                 <div class="button-group">
-                    <button id="calculateRouteBtn" onclick="calculateRoute()">Rota Oluştur</button>
+                    <button id="calculateRouteBtn" onclick="calculateRoute()">Rota Oluştur (Konsola)</button>
                 </div>
             </div>
+
+            <!-- Yeni Dinamik Rota Butonları -->
+            <div>
+                <p>Tekli Rota Seçenekleri:</p>
+                <div class="button-group">
+                    <button onclick="calculateCheapestRoute()">En Uygun Ücretli</button>
+                    <button onclick="calculateFastestRoute()">En Uygun Zamanlı</button>
+                </div>
+                <div class="button-group">
+                    <button onclick="calculateShortestRoute()">En Uygun Mesafeli</button>
+                    <button onclick="calculateBusRoute()">Sadece Otobüs</button>
+                </div>
+                <div class="button-group">
+                    <button onclick="calculateTramRoute()">Sadece Tramvay</button>
+                    <button onclick="calculateTaxiRoute()">Sadece Taksi</button>
+                </div>
+            </div>
+
+            <!-- Rota Bilgilerini Gösterme Alanı -->
+            <div id="routeResult"></div>
         </div>
 
-        <!-- Sağ Taraf (Harita) -->
+        <!-- Harita Alanı -->
         <div id="map"></div>
     </div>
 
-    <!-- 2) Leaflet JS dosyasını, harita kodunuzdan önce ekleyin -->
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-
-    <!-- 3) Haritayı oluşturan kodlarınızı Leaflet yüklendikten sonra çalıştırın -->
     <script>
-        // Harita oluşturma
-        const map = L.map('map').setView([40.78259, 29.94628], 13);
+        // Harita, durak işaretçileri ve rota çizimleri için kullanılan JavaScript kodları
 
-        // Harita katmanı (OpenStreetMap)
+        const map = L.map('map').setView([40.78259, 29.94628], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // İkonlar
-        const tramIcon = L.icon({
-            iconUrl: 'tram.png',
-            iconSize: [32, 32]
-        });
-        const busIcon = L.icon({
-            iconUrl: 'bus.png',
-            iconSize: [32, 32]
-        });
+        const tramIcon = L.icon({ iconUrl: 'tram.png', iconSize: [32, 32] });
+        const busIcon = L.icon({ iconUrl: 'bus.png', iconSize: [32, 32] });
 
-        // OSRM API üzerinden gerçek yol rotası alacak fonksiyon (sadece otobüs durakları için kullanacağız)
         function getRouteCoordinates(lat1, lon1, lat2, lon2) {
             const url = `http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
             return fetch(url)
@@ -150,24 +179,21 @@
                 });
         }
 
-        // Durak verilerini API üzerinden çekiyoruz
+        // /api/stops çağrısı ve durakların haritaya eklenmesi
         fetch('/api/stops')
             .then(response => response.json())
             .then(stopsData => {
                 const stopsMap = {};
-
-                // Marker'ları oluştur ve haritaya ekle
                 stopsData.forEach(stop => {
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
                     const marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
-
                     marker.on('click', function(e) {
                         e.originalEvent.stopPropagation();
-                        let stopInfo = `<b>${stop.name}</b><br>` +
-                                       `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>` +
-                                       `ID: ${stop.id}<br>` +
-                                       `Tip: ${stop.type}<br>` +
-                                       `Son Durak: ${stop.sonDurak ? "Evet" : "Hayır"}`;
+                        let stopInfo = `<b>${stop.name}</b><br>`
+                                     + `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>`
+                                     + `ID: ${stop.id}<br>`
+                                     + `Tip: ${stop.type}<br>`
+                                     + `Son Durak: ${stop.sonDurak ? "Evet" : "Hayır"}`;
                         if (stop.nextStops && stop.nextStops.length > 0) {
                             stopInfo += `<br>Sonraki Durak Sayısı: ${stop.nextStops.length}`;
                         }
@@ -180,17 +206,13 @@
                     });
                     stopsMap[stop.id] = stop;
                 });
-
-                // Duraklar arası bağlantıları çiziyoruz
+                // Duraklar arası bağlantıları çiz
                 stopsData.forEach(stop => {
-                    // NextStops bağlantıları
                     if (stop.nextStops) {
                         stop.nextStops.forEach(ns => {
                             const targetStop = stopsMap[ns.stopId];
                             if (targetStop) {
-                                // Otobüs durakları arası: OSRM üzerinden
                                 if (stop.type.toLowerCase() === "bus" && targetStop.type.toLowerCase() === "bus") {
-                                    // Mavi, OSRM
                                     getRouteCoordinates(stop.lat, stop.lon, targetStop.lat, targetStop.lon)
                                         .then(routeCoords => {
                                             L.polyline(routeCoords, {
@@ -199,19 +221,15 @@
                                                 weight: 2
                                             }).addTo(map);
                                         });
-                                }
-                                // Tramvay durakları arası: Doğrudan düz çizgi
-                                else if (stop.type.toLowerCase() === "tram" && targetStop.type.toLowerCase() === "tram") {
+                                } else if (stop.type.toLowerCase() === "tram" && targetStop.type.toLowerCase() === "tram") {
                                     L.polyline(
                                         [[stop.lat, stop.lon], [targetStop.lat, targetStop.lon]],
                                         { color: 'green', dashArray: '5, 5', weight: 2 }
                                     ).addTo(map);
                                 }
-                                // Eğer bir durak bus diğeri tram ise, (opsiyonel) farklı bir şey yapmak isterseniz buraya ekleyebilirsiniz
                             }
                         });
                     }
-                    // Transfer bağlantıları: doğrudan düz çizgi (kırmızı)
                     if (stop.transfer) {
                         const transferStop = stopsMap[stop.transfer.transferStopId];
                         if (transferStop) {
@@ -225,9 +243,8 @@
             })
             .catch(error => console.error('Veri çekme hatası:', error));
 
-        // Yolcu Tipi Seçimi Fonksiyonu
+        // Yolcu Tipi Seçimi
         function selectPassengerType(type) {
-            console.log(`Seçilen yolcu tipi: ${type}`);
             document.getElementById('genelBtn').disabled = true;
             document.getElementById('ogrenciBtn').disabled = true;
             document.getElementById('yasliBtn').disabled = true;
@@ -239,9 +256,8 @@
             });
         }
 
-        // Ödeme Türü Seçimi Fonksiyonu
+        // Ödeme Türü Seçimi
         function selectPaymentType(type) {
-            console.log(`Seçilen ödeme türü: ${type}`);
             document.getElementById('nakitBtn').disabled = true;
             document.getElementById('kredikartiBtn').disabled = true;
             document.getElementById('kentkartBtn').disabled = true;
@@ -253,7 +269,7 @@
             });
         }
 
-        // Başlangıç Noktası Seçimi Fonksiyonu
+        // Başlangıç Noktası Seçimi
         let startPointMarker = null;
         function enableStartPointSelection() {
             map.on('click', onMapClickStart);
@@ -279,7 +295,7 @@
             map.off('click', onMapClickStart);
         }
 
-        // Hedef Konum Seçimi Fonksiyonu
+        // Hedef Noktası Seçimi
         let destinationPointMarker = null;
         function enableDestinationPointSelection() {
             map.on('click', onMapClickDestination);
@@ -305,7 +321,7 @@
             map.off('click', onMapClickDestination);
         }
 
-        // Rota Oluştur Butonunun Fonksiyonu
+        // Orijinal Rota Oluştur (Konsola yazan)
         function calculateRoute() {
             fetch('/api/calculateRoute', { method: 'POST' })
             .then(response => response.json())
@@ -314,6 +330,69 @@
                 alert(data.message);
             })
             .catch(error => console.error('Rota hesaplama hatası:', error));
+        }
+
+        // Dinamik HTML döndüren rota endpoint'leri
+        function calculateCheapestRoute() {
+            fetch('/api/calculateCheapestRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
+        }
+        function calculateFastestRoute() {
+            fetch('/api/calculateFastestRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
+        }
+        function calculateShortestRoute() {
+            fetch('/api/calculateShortestRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
+        }
+        function calculateBusRoute() {
+            fetch('/api/calculateBusRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
+        }
+        function calculateTramRoute() {
+            fetch('/api/calculateTramRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
+        }
+
+        function calculateTaxiRoute() {
+            fetch('/api/calculateTaxiRoute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.routeHtml) {
+                    document.getElementById('routeResult').innerHTML = data.routeHtml;
+                }
+            })
+            .catch(error => console.error(error));
         }
     </script>
 </body>
