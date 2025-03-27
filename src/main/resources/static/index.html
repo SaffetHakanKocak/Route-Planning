@@ -52,27 +52,36 @@
             width: 75%;
             height: 100vh;
         }
-
         /* Rota bilgilerini göstereceğimiz alan */
         #routeResult {
             margin-top: 20px;
-            /* Eklenen stiller: Dinamik HTML çıktısının okunaklı görünmesi için */
             font-size: 14px;
             line-height: 1.4;
         }
+        /* Arka plan sınıfları */
+        .blue-bgc { background-color: #e3f2fd; }
+        .orange-bgc { background-color: #ffe0b2; }
+        .purple-bgc { background-color: #f3e5f5; }
 
-        /* ====== EKLENDİ: Java tarafında kullanılan arka plan sınıfları ====== */
-        .blue-bgc {
-            background-color: #e3f2fd; /* Mavi tonlu arka plan */
+        /* ====== LEJANT STİLLERİ ====== */
+        .leaflet-control.legend {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 6px 8px;
+            font: 12px/14px Arial, Helvetica, sans-serif;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border-radius: 4px;
         }
-        .orange-bgc {
-            background-color: #ffe0b2; /* Turuncu tonlu arka plan */
+        .leaflet-control.legend p {
+            margin: 4px 0;
         }
-        .purple-bgc {
-            background-color: #f3e5f5; /* Mor tonlu arka plan */
+        .leaflet-control.legend .legend-line {
+            display: inline-block;
+            width: 25px;
+            height: 4px;
+            margin-right: 8px;
+            vertical-align: middle;
         }
-
-        /* İsteğe bağlı daha fazla stil ekleyebilirsiniz */
     </style>
 </head>
 <body>
@@ -125,7 +134,7 @@
                 </div>
             </div>
 
-            <!-- Yeni Dinamik Rota Butonları -->
+            <!-- Dinamik Rota Butonları -->
             <div>
                 <p>Tekli Rota Seçenekleri:</p>
                 <div class="button-group">
@@ -153,8 +162,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
-        // Harita, durak işaretçileri ve rota çizimleri için kullanılan JavaScript kodları
-
+        // Haritayı başlatma ve global değişkenler
         const map = L.map('map').setView([40.78259, 29.94628], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
@@ -163,6 +171,13 @@
         const tramIcon = L.icon({ iconUrl: 'tram.png', iconSize: [32, 32] });
         const busIcon = L.icon({ iconUrl: 'bus.png', iconSize: [32, 32] });
 
+        const stopsMap = {};
+        const stopsMapByName = {};
+        var currentRouteLayer = null;
+        let startPointMarker = null;
+        let destinationPointMarker = null;
+
+        // OSRM üzerinden rota koordinatlarını alma fonksiyonu
         function getRouteCoordinates(lat1, lon1, lat2, lon2) {
             const url = `http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
             return fetch(url)
@@ -179,21 +194,20 @@
                 });
         }
 
-        // /api/stops çağrısı ve durakların haritaya eklenmesi
+        // Durak verilerini çekip haritaya ekleme
         fetch('/api/stops')
             .then(response => response.json())
             .then(stopsData => {
-                const stopsMap = {};
                 stopsData.forEach(stop => {
                     const icon = stop.type === "tram" ? tramIcon : busIcon;
                     const marker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(map);
                     marker.on('click', function(e) {
                         e.originalEvent.stopPropagation();
-                        let stopInfo = `<b>${stop.name}</b><br>`
-                                     + `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>`
-                                     + `ID: ${stop.id}<br>`
-                                     + `Tip: ${stop.type}<br>`
-                                     + `Son Durak: ${stop.sonDurak ? "Evet" : "Hayır"}`;
+                        let stopInfo = `<b>${stop.name}</b><br>` +
+                                       `<b>Konum:</b> ${stop.lat}, ${stop.lon}<br>` +
+                                       `ID: ${stop.id}<br>` +
+                                       `Tip: ${stop.type}<br>` +
+                                       `Son Durak: ${stop.sonDurak ? "Evet" : "Hayır"}`;
                         if (stop.nextStops && stop.nextStops.length > 0) {
                             stopInfo += `<br>Sonraki Durak Sayısı: ${stop.nextStops.length}`;
                         }
@@ -205,8 +219,9 @@
                         marker.openPopup();
                     });
                     stopsMap[stop.id] = stop;
+                    stopsMapByName[stop.name] = { lat: stop.lat, lon: stop.lon, type: stop.type };
                 });
-                // Duraklar arası bağlantıları çiz
+                // Duraklar arası bağlantıları çizme
                 stopsData.forEach(stop => {
                     if (stop.nextStops) {
                         stop.nextStops.forEach(ns => {
@@ -243,6 +258,157 @@
             })
             .catch(error => console.error('Veri çekme hatası:', error));
 
+        // Haversine formülü ile mesafe hesaplama fonksiyonları
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Dünya yarıçapı (km)
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c;
+            return d;
+        }
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        // Rota HTML’sinden güzergahı çizip, hem başlangıç noktasından en yakın durağa hem de;
+        // varsa rotaya ait son duraktan hedef konuma gidiş çizgisini ekleyen fonksiyon.
+        // Mesafe 3 km’den az ise çizgi mor, 3 km veya fazlaysa sarı renkte çizilir.
+        function drawRouteFromHTML(htmlString) {
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+            }
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(htmlString, 'text/html');
+            var ol = doc.querySelector('ol');
+            if (!ol) {
+                console.error("HTML içinde rota listesi bulunamadı.");
+                return;
+            }
+            var liElements = ol.querySelectorAll('li');
+            var segments = [];
+            liElements.forEach(li => {
+                var bElements = li.querySelectorAll('b');
+                if (bElements.length >= 2) {
+                    var startStopName = bElements[0].textContent.split(' [')[0].trim();
+                    var endStopName = bElements[1].textContent.split(' [')[0].trim();
+                    if (stopsMapByName[startStopName] && stopsMapByName[endStopName]) {
+                        segments.push({
+                            start: stopsMapByName[startStopName],
+                            end: stopsMapByName[endStopName]
+                        });
+                    }
+                }
+            });
+            var routeLayer = L.layerGroup();
+            // Her segment için rota koordinatlarını alıp çizgi oluşturma
+            var promises = segments.map(segment => {
+                return getRouteCoordinates(segment.start.lat, segment.start.lon, segment.end.lat, segment.end.lon)
+                    .then(routeCoords => {
+                        let lineColor = 'red';
+                        if (segment.start.type && segment.end.type) {
+                            if (segment.start.type.toLowerCase() === 'bus' && segment.end.type.toLowerCase() === 'bus') {
+                                lineColor = 'blue';
+                            } else if (segment.start.type.toLowerCase() === 'tram' && segment.end.type.toLowerCase() === 'tram') {
+                                lineColor = 'green';
+                            }
+                        }
+                        var polyline = L.polyline(routeCoords, { color: lineColor, weight: 4 });
+                        routeLayer.addLayer(polyline);
+                    });
+            });
+
+            // Başlangıç noktasına en yakın durağı ekleme (mesafe 3 km’den az ise mor, yoksa sarı)
+            var nearestStopPromise = new Promise((resolve, reject) => {
+                if (startPointMarker && segments.length > 0) {
+                    const startLatLng = startPointMarker.getLatLng();
+                    let nearestStop = null;
+                    let minDistance = Infinity;
+                    segments.forEach(segment => {
+                        [segment.start, segment.end].forEach(stop => {
+                            const distance = getDistanceFromLatLonInKm(startLatLng.lat, startLatLng.lng, stop.lat, stop.lon);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                nearestStop = stop;
+                            }
+                        });
+                    });
+                    if (nearestStop) {
+                        const lineColor = minDistance < 3 ? 'purple' : 'yellow';
+                        getRouteCoordinates(startLatLng.lat, startLatLng.lng, nearestStop.lat, nearestStop.lon)
+                        .then(routeCoords => {
+                            const nearestPolyline = L.polyline(routeCoords, { color: lineColor, weight: 4 });
+                            routeLayer.addLayer(nearestPolyline);
+                            resolve();
+                        })
+                        .catch(error => {
+                            console.error("Nearest stop route error:", error);
+                            resolve();
+                        });
+                    } else {
+                        resolve();
+                    }
+                } else {
+                    resolve();
+                }
+            });
+
+            // EK: Rotaya ait son duraktan hedef konuma gidişi ekleme (varsa)
+            var destinationLinePromise = new Promise((resolve, reject) => {
+                if (destinationPointMarker && segments.length > 0) {
+                    const destinationLatLng = destinationPointMarker.getLatLng();
+                    // Son segmentin "end" durakını son durak olarak alıyoruz.
+                    const lastSegment = segments[segments.length - 1];
+                    const finalStop = lastSegment.end;
+                    const distance = getDistanceFromLatLonInKm(finalStop.lat, finalStop.lon, destinationLatLng.lat, destinationLatLng.lng);
+                    const lineColor = distance < 3 ? 'purple' : 'yellow';
+                    getRouteCoordinates(finalStop.lat, finalStop.lon, destinationLatLng.lat, destinationLatLng.lng)
+                    .then(routeCoords => {
+                        const destPolyline = L.polyline(routeCoords, { color: lineColor, weight: 4 });
+                        routeLayer.addLayer(destPolyline);
+                        resolve();
+                    })
+                    .catch(error => {
+                        console.error("Destination route error:", error);
+                        resolve();
+                    });
+                } else {
+                    resolve();
+                }
+            });
+
+            Promise.all([...promises, nearestStopPromise, destinationLinePromise])
+                .then(() => {
+                    routeLayer.addTo(map);
+                    currentRouteLayer = routeLayer;
+                })
+                .catch(error => {
+                    console.error("Rota çizilirken hata:", error);
+                });
+        }
+
+        // Sadece taksi için; başlangıçtan hedefe gerçekçi rota çizimi (sarı)
+        function drawTaxiRoute() {
+            if (!startPointMarker || !destinationPointMarker) {
+                alert("Lütfen başlangıç ve hedef noktalarını seçin.");
+                return;
+            }
+            const startLatLng = startPointMarker.getLatLng();
+            const destLatLng = destinationPointMarker.getLatLng();
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+            }
+            getRouteCoordinates(startLatLng.lat, startLatLng.lng, destLatLng.lat, destLatLng.lng)
+                .then(routeCoords => {
+                    currentRouteLayer = L.polyline(routeCoords, { color: 'yellow', weight: 4 }).addTo(map);
+                })
+                .catch(error => console.error("Taxi rota çizilirken hata:", error));
+        }
+
         // Yolcu Tipi Seçimi
         function selectPassengerType(type) {
             document.getElementById('genelBtn').disabled = true;
@@ -269,8 +435,7 @@
             });
         }
 
-        // Başlangıç Noktası Seçimi
-        let startPointMarker = null;
+        // Başlangıç Noktası Seçimi (seçim anında herhangi bir en yakın durak çizgisi gösterilmez)
         function enableStartPointSelection() {
             map.on('click', onMapClickStart);
             document.getElementById('selectStartPointBtn').disabled = true;
@@ -296,7 +461,6 @@
         }
 
         // Hedef Noktası Seçimi
-        let destinationPointMarker = null;
         function enableDestinationPointSelection() {
             map.on('click', onMapClickDestination);
             document.getElementById('selectDestinationPointBtn').disabled = true;
@@ -321,79 +485,98 @@
             map.off('click', onMapClickDestination);
         }
 
-        // Orijinal Rota Oluştur (Konsola yazan)
+        // Orijinal Rota Oluştur (Konsol için)
         function calculateRoute() {
             fetch('/api/calculateRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                console.log(data.message);
-                alert(data.message);
-            })
-            .catch(error => console.error('Rota hesaplama hatası:', error));
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                    alert(data.message);
+                })
+                .catch(error => console.error('Rota hesaplama hatası:', error));
         }
 
-        // Dinamik HTML döndüren rota endpoint'leri
+        // Diğer rota hesaplama fonksiyonları (rota HTML’si alındıktan sonra drawRouteFromHTML çağrılıyor)
         function calculateCheapestRoute() {
             fetch('/api/calculateCheapestRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        drawRouteFromHTML(data.routeHtml);
+                    }
+                })
+                .catch(error => console.error(error));
         }
         function calculateFastestRoute() {
             fetch('/api/calculateFastestRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        drawRouteFromHTML(data.routeHtml);
+                    }
+                })
+                .catch(error => console.error(error));
         }
         function calculateShortestRoute() {
             fetch('/api/calculateShortestRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        drawRouteFromHTML(data.routeHtml);
+                    }
+                })
+                .catch(error => console.error(error));
         }
         function calculateBusRoute() {
             fetch('/api/calculateBusRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        drawRouteFromHTML(data.routeHtml);
+                    }
+                })
+                .catch(error => console.error(error));
         }
         function calculateTramRoute() {
             fetch('/api/calculateTramRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        drawRouteFromHTML(data.routeHtml);
+                    }
+                })
+                .catch(error => console.error(error));
         }
-
         function calculateTaxiRoute() {
             fetch('/api/calculateTaxiRoute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.routeHtml) {
-                    document.getElementById('routeResult').innerHTML = data.routeHtml;
-                }
-            })
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routeHtml) {
+                        document.getElementById('routeResult').innerHTML = data.routeHtml;
+                    }
+                    drawTaxiRoute();
+                })
+                .catch(error => console.error(error));
         }
+
+        /* ===== LEJANT EKLEME: Mavi, Yeşil, Kırmızı + Sarı (Taksi), Mor (Yürüme) ===== */
+        var legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-control legend');
+            div.innerHTML = ''
+                + '<p><span class="legend-line" style="background: blue;"></span>Otobüs Bağlantısı</p>'
+                + '<p><span class="legend-line" style="background: green;"></span>Tramvay Bağlantısı</p>'
+                + '<p><span class="legend-line" style="background: red;"></span>Transfer Bağlantısı</p>'
+                + '<p><span class="legend-line" style="background: yellow;"></span>Taksi</p>'
+                + '<p><span class="legend-line" style="background: purple;"></span>Yürüme</p>';
+            return div;
+        };
+        legend.addTo(map);
     </script>
 </body>
 </html>
