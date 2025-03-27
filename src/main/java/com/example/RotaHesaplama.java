@@ -1,25 +1,26 @@
 package com.example;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 
 import org.jgrapht.Graph;
-import org.jgrapht.GraphPath;
-import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
+import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultUndirectedWeightedGraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 
 /**
- * RotaHesaplama, başlangıç/varış noktalarına göre
- * farklı kriterlerde (ücret, zaman, mesafe) ve farklı ulaşım modlarında
- * (sadece otobüs, sadece tramvay, sadece taksi) rota hesaplaması yapar.
- *
- * Hem konsola yazan (UygunUcretHesapla, UygunZamanHesapla, UygunKmHesapla,
- * SadeceTaxiRota, SadeceOtobusRota, SadeceTramvayRota) metodlarını,
- * hem de dinamik HTML döndüren (getUygunUcretHtml, getUygunZamanHtml,
- * getUygunMesafeHtml, getSadeceOtobusHtml, getSadeceTramvayHtml,
- * getSadeceTaxiHtml) metodlarını içerir.
+ * RotaHesaplama, başlangıç/varış noktalarına göre farklı kriterlerde (ücret, zaman, mesafe)
+ * ve farklı ulaşım modlarında (sadece otobüs, sadece tramvay, sadece taksi) rota hesaplaması yapar.
+ * 
+ * Hem konsola yazan hem de dinamik HTML döndüren metodları içerir.
+ * 
+ * Not: Bu güncellenmiş versiyonda, en kısa yol hesaplaması için JGraphT’nin hazır DijkstraShortestPath
+ * sınıfı yerine, manuel Dijkstra algoritması (DijkstraSolver) kullanılmıştır.
  */
 public class RotaHesaplama {
 
@@ -36,7 +37,7 @@ public class RotaHesaplama {
     private final Yolcu yolcu;
     private final OdemeYontemi odemeYontemi;
 
-    // WeightedEdge -> RouteEdge eşleştirmesi (Dijkstra'da kullanılır)
+    // WeightedEdge -> RouteEdge eşleştirmesi (manuel Dijkstra’da kullanılacak)
     private final Map<DefaultWeightedEdge, RouteEdge> edgeMap = new HashMap<>();
 
     public RotaHesaplama(double startLat, double startLon,
@@ -68,20 +69,19 @@ public class RotaHesaplama {
             System.out.println("\n[Console] En Uygun Ücretli Rota:");
             System.out.println("Hedefe en yakın durak: " + nearestDestStop.getName());
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(wgraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startSegment.stop, nearestDestStop);
+            // Manuel Dijkstra algoritması kullanılarak en kısa yol hesaplanıyor
+            List<Stop> path = DijkstraSolver.findShortestPath(wgraph, startSegment.stop, nearestDestStop);
 
             double totalDistance = startSegment.distance;
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            if (path == null) {
+            if (path == null || path.size() == 0) {
                 System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = edgeMap.get(dwe);
@@ -90,12 +90,10 @@ public class RotaHesaplama {
                             totalCost     += re.getUcret();
                             totalTime     += re.getSure();
 
-                            // Transfer kontrolü: Farklı tip ise transfer, aksi halde boş.
                             String transferInfo = "";
                             if (!current.getType().equalsIgnoreCase(next.getType())) {
                                 transferInfo = " (🔁 Transfer)";
                             }
-                            // Konsol çıktısında her satır tek satırda olacak şekilde:
                             System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
                                     current.getName(), getModeEmoji(current.getType()),
                                     next.getName(), getModeEmoji(next.getType()),
@@ -106,15 +104,14 @@ public class RotaHesaplama {
                     }
                 }
             }
-            // Son durak -> hedef
+            // Son durak -> hedef segmenti
             double endSegmentDistance = distanceBetween(nearestDestStop.getLat(), nearestDestStop.getLon(), destLat, destLon);
             SegmentResult endSegment = processSegmentStopToPoint(nearestDestStop, endSegmentDistance, "Hedef");
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
-            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                     endSegment.time, endSegment.cost, endSegment.distance);
-            System.out.println();
 
             System.out.println("--- Rota Özeti (Ücret) ---");
             System.out.println("Toplam Mesafe: " + totalDistance + " km");
@@ -141,20 +138,18 @@ public class RotaHesaplama {
             System.out.println("\n[Console] En Uygun Zamanlı Rota:");
             System.out.println("Hedefe en yakın durak: " + nearestDestStop.getName());
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(wgraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startSegment.stop, nearestDestStop);
+            List<Stop> path = DijkstraSolver.findShortestPath(wgraph, startSegment.stop, nearestDestStop);
 
             double totalDistance = startSegment.distance;
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            if (path == null) {
+            if (path == null || path.size() == 0) {
                 System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = edgeMap.get(dwe);
@@ -167,12 +162,11 @@ public class RotaHesaplama {
                             if (!current.getType().equalsIgnoreCase(next.getType())) {
                                 transferInfo = " (🔁 Transfer)";
                             }
-                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                                     current.getName(), getModeEmoji(current.getType()),
                                     next.getName(), getModeEmoji(next.getType()),
                                     transferInfo,
                                     re.getSure(), re.getUcret(), re.getMesafe());
-                            System.out.println();
                         }
                     }
                 }
@@ -182,9 +176,8 @@ public class RotaHesaplama {
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
-            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                     endSegment.time, endSegment.cost, endSegment.distance);
-            System.out.println();
 
             System.out.println("--- Rota Özeti (Zaman) ---");
             System.out.println("Toplam Mesafe: " + totalDistance + " km");
@@ -211,20 +204,18 @@ public class RotaHesaplama {
             System.out.println("\n[Console] En Uygun Mesafeli Rota:");
             System.out.println("Hedefe en yakın durak: " + nearestDestStop.getName());
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(wgraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startSegment.stop, nearestDestStop);
+            List<Stop> path = DijkstraSolver.findShortestPath(wgraph, startSegment.stop, nearestDestStop);
 
             double totalDistance = startSegment.distance;
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            if (path == null) {
+            if (path == null || path.size() == 0) {
                 System.out.println("Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = edgeMap.get(dwe);
@@ -237,12 +228,11 @@ public class RotaHesaplama {
                             if (!current.getType().equalsIgnoreCase(next.getType())) {
                                 transferInfo = " (🔁 Transfer)";
                             }
-                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                                     current.getName(), getModeEmoji(current.getType()),
                                     next.getName(), getModeEmoji(next.getType()),
                                     transferInfo,
                                     re.getSure(), re.getUcret(), re.getMesafe());
-                            System.out.println();
                         }
                     }
                 }
@@ -252,9 +242,8 @@ public class RotaHesaplama {
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
-            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                     endSegment.time, endSegment.cost, endSegment.distance);
-            System.out.println();
 
             System.out.println("--- Rota Özeti (Mesafe) ---");
             System.out.println("Toplam Mesafe: " + totalDistance + " km");
@@ -279,8 +268,7 @@ public class RotaHesaplama {
         int time = (int) Math.ceil(taxiTime);
 
         System.out.println("Başlangıç noktasına en yakın durak: Taksi (doğrudan hesaplama)");
-        System.out.printf("Başlangıç -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km", time, cost, distance);
-        System.out.println();
+        System.out.printf("Başlangıç -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n", time, cost, distance);
 
         applyAdjustments(cost);
     }
@@ -324,15 +312,13 @@ public class RotaHesaplama {
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(busGraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startBus, destBus);
-            if (path == null) {
+            List<Stop> path = DijkstraSolver.findShortestPath(busGraph, startBus, destBus);
+            if (path == null || path.size() == 0) {
                 System.out.println("Otobüs durakları arasında rota bulunamadı!");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = busGraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = busEdgeMap.get(dwe);
@@ -345,12 +331,11 @@ public class RotaHesaplama {
                             if (!current.getType().equalsIgnoreCase(next.getType())) {
                                 transferInfo = " (🔁 Transfer)";
                             }
-                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                                     current.getName(), getModeEmoji(current.getType()),
                                     next.getName(), getModeEmoji(next.getType()),
                                     transferInfo,
                                     re.getSure(), re.getUcret(), re.getMesafe());
-                            System.out.println();
                         }
                     }
                 }
@@ -360,15 +345,12 @@ public class RotaHesaplama {
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
-            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                     endSegment.time, endSegment.cost, endSegment.distance);
-            System.out.println();
 
             System.out.println("--- Sadece Otobüs Özeti ---");
-            System.out.printf("Mesafe=%.2f km, Süre=%d dk, Ücret=%.2f TL", totalDistance, totalTime, totalCost);
-            System.out.println();
+            System.out.printf("Mesafe=%.2f km, Süre=%d dk, Ücret=%.2f TL%n", totalDistance, totalTime, totalCost);
             applyAdjustments(totalCost);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -397,8 +379,7 @@ public class RotaHesaplama {
                 if (source.getType().equalsIgnoreCase("tram") && target.getType().equalsIgnoreCase("tram")) {
                     DefaultWeightedEdge dwe = tramGraph.addEdge(source, target);
                     if (dwe != null) {
-                        double weight = re.getUcret();
-                        tramGraph.setEdgeWeight(dwe, weight);
+                        tramGraph.setEdgeWeight(dwe, re.getUcret());
                         tramEdgeMap.put(dwe, re);
                     }
                 }
@@ -414,15 +395,13 @@ public class RotaHesaplama {
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(tramGraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startTram, destTram);
-            if (path == null) {
+            List<Stop> path = DijkstraSolver.findShortestPath(tramGraph, startTram, destTram);
+            if (path == null || path.size() == 0) {
                 System.out.println("Tramvay durakları arasında rota bulunamadı!");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = tramGraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = tramEdgeMap.get(dwe);
@@ -435,12 +414,11 @@ public class RotaHesaplama {
                             if (!current.getType().equalsIgnoreCase(next.getType())) {
                                 transferInfo = " (🔁 Transfer)";
                             }
-                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+                            System.out.printf("%s [%s] -> %s [%s]%s | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                                     current.getName(), getModeEmoji(current.getType()),
                                     next.getName(), getModeEmoji(next.getType()),
                                     transferInfo,
                                     re.getSure(), re.getUcret(), re.getMesafe());
-                            System.out.println();
                         }
                     }
                 }
@@ -450,15 +428,12 @@ public class RotaHesaplama {
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
-            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km",
+            System.out.printf("Son Durak -> Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km%n",
                     endSegment.time, endSegment.cost, endSegment.distance);
-            System.out.println();
 
             System.out.println("--- Sadece Tramvay Özeti ---");
-            System.out.printf("Mesafe=%.2f km, Süre=%d dk, Ücret=%.2f TL", totalDistance, totalTime, totalCost);
-            System.out.println();
+            System.out.printf("Mesafe=%.2f km, Süre=%d dk, Ücret=%.2f TL%n", totalDistance, totalTime, totalCost);
             applyAdjustments(totalCost);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -475,10 +450,6 @@ public class RotaHesaplama {
     public String getSadeceTramvayHtml()   { return buildTramRouteHtml(); }
     public String getSadeceTaxiHtml()      { return buildTaxiRouteHtml(); }
 
-    // -------------------------------------------------------------------------
-    // GENEL BİR YARDIMCI METOD: buildDynamicRouteHtml
-    // (cost/time/distance parametresine göre rota hesaplar, HTML döndürür)
-    // -------------------------------------------------------------------------
     private String buildDynamicRouteHtml(String weightType, String title, String styleClass) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div class='" + styleClass + "' style='padding:15px; border-radius:8px; border:1px solid #ddd;'>");
@@ -488,9 +459,7 @@ public class RotaHesaplama {
             Graph<Stop, DefaultWeightedEdge> wgraph = buildWeightedGraph(weightType);
 
             // Başlangıç segmenti
-            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(
-                startLat, startLon, wgraph, "Başlangıç"
-            );
+            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, wgraph, "Başlangıç");
             double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
             sb.append("<p style='font-weight:bold; color:#555;'>");
             sb.append("📍 Başlangıç Noktasına En Yakın Durak: " + startSegment.stop.getName());
@@ -504,9 +473,7 @@ public class RotaHesaplama {
 
             Stop nearestDestStop = findNearestStop(destLat, destLon, wgraph);
 
-            // Dijkstra
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(wgraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startSegment.stop, nearestDestStop);
+            List<Stop> path = DijkstraSolver.findShortestPath(wgraph, startSegment.stop, nearestDestStop);
 
             double totalDistance = startSegment.distance;
             double totalCost = startSegment.cost;
@@ -514,13 +481,12 @@ public class RotaHesaplama {
 
             sb.append("<div style='margin-top:10px;'><b>🛣️ Rota Detayları:</b></div>");
             sb.append("<ol style='padding-left:18px; margin:0;'>");
-            if (path == null) {
+            if (path == null || path.size() == 0) {
                 sb.append("<li style='color:red;'>Başlangıç durağı ile hedef durağı arasında bir yol bulunamadı!</li>");
             } else {
-                List<Stop> stops = path.getVertexList();
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = wgraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = edgeMap.get(dwe);
@@ -543,11 +509,7 @@ public class RotaHesaplama {
             }
             sb.append("</ol>");
 
-            // Hedef segmenti
-            double endSegmentDistance = distanceBetween(
-                nearestDestStop.getLat(), nearestDestStop.getLon(),
-                destLat, destLon
-            );
+            double endSegmentDistance = distanceBetween(nearestDestStop.getLat(), nearestDestStop.getLon(), destLat, destLon);
             SegmentResult endSegment = processSegmentStopToPoint(nearestDestStop, endSegmentDistance, "Hedef");
             totalDistance += endSegment.distance;
             totalCost     += endSegment.cost;
@@ -577,9 +539,6 @@ public class RotaHesaplama {
         return sb.toString();
     }
 
-    // -------------------------------------------------------------------------
-    // SADECE TAKSİ (Dinamik HTML) - buildTaxiRouteHtml
-    // -------------------------------------------------------------------------
     private String buildTaxiRouteHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#fff9c4;padding:15px;border:1px solid #ccc;border-radius:5px;'>");
@@ -592,7 +551,6 @@ public class RotaHesaplama {
             double taxiTime = taxi.SureHesapla(distance);
             int time = (int) Math.ceil(taxiTime);
     
-            // Direkt başlangıç -> hedef rotası bilgisi
             sb.append("<p style='font-weight:bold; color:#555;'>");
             sb.append("📍 Başlangıç -> Hedef (Doğrudan Taksi)");
             sb.append("</p>");
@@ -611,9 +569,6 @@ public class RotaHesaplama {
         return sb.toString();
     }
     
-    // -------------------------------------------------------------------------
-    // SADECE OTOBÜS (Dinamik HTML) - buildBusRouteHtml
-    // -------------------------------------------------------------------------
     private String buildBusRouteHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#e8f5e9;padding:15px;border:1px solid #ccc;border-radius:5px;'>");
@@ -660,17 +615,14 @@ public class RotaHesaplama {
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(busGraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startBus, destBus);
-
-            if (path == null) {
+            List<Stop> path = DijkstraSolver.findShortestPath(busGraph, startBus, destBus);
+            if (path == null || path.size() == 0) {
                 sb.append("<p style='color:red;'>Otobüs durakları arasında rota bulunamadı!</p>");
             } else {
-                List<Stop> stops = path.getVertexList();
                 sb.append("<ol style='padding-left:18px; margin:0;'>");
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = busGraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = busEdgeMap.get(dwe);
@@ -720,9 +672,6 @@ public class RotaHesaplama {
         return sb.toString();
     }
 
-    // -------------------------------------------------------------------------
-    // SADECE TRAMVAY (Dinamik HTML) - buildTramRouteHtml
-    // -------------------------------------------------------------------------
     private String buildTramRouteHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#fce4ec;padding:15px;border:1px solid #ccc;border-radius:5px;'>");
@@ -769,17 +718,15 @@ public class RotaHesaplama {
             double totalCost = startSegment.cost;
             int totalTime = startSegment.time;
 
-            DijkstraShortestPath<Stop, DefaultWeightedEdge> dsp = new DijkstraShortestPath<>(tramGraph);
-            GraphPath<Stop, DefaultWeightedEdge> path = dsp.getPath(startTram, destTram);
+            List<Stop> path = DijkstraSolver.findShortestPath(tramGraph, startTram, destTram);
             sb.append("<div><b>🛣️ Tramvay Rota Detayları:</b></div>");
-            if (path == null) {
+            if (path == null || path.size() == 0) {
                 sb.append("<p style='color:red;'>Tramvay durakları arasında rota bulunamadı!</p>");
             } else {
-                List<Stop> stops = path.getVertexList();
                 sb.append("<ol style='padding-left:18px; margin:0;'>");
-                for (int i = 0; i < stops.size() - 1; i++) {
-                    Stop current = stops.get(i);
-                    Stop next = stops.get(i + 1);
+                for (int i = 0; i < path.size() - 1; i++) {
+                    Stop current = path.get(i);
+                    Stop next = path.get(i + 1);
                     DefaultWeightedEdge dwe = tramGraph.getEdge(current, next);
                     if (dwe != null) {
                         RouteEdge re = tramEdgeMap.get(dwe);
@@ -830,7 +777,7 @@ public class RotaHesaplama {
     }
 
     // -------------------------------------------------------------------------
-    // Overload: İndirim/Zam uygularken final ücreti döndür
+    // İndirim/Zam uygularken final ücreti döndüren yardımcı metot
     // -------------------------------------------------------------------------
     private double applyAdjustmentsAndReturn(double baseCost, StringBuilder sb) {
         double adjustedCost = baseCost;
@@ -853,7 +800,7 @@ public class RotaHesaplama {
     }
 
     // -------------------------------------------------------------------------
-    // buildWeightedGraph, processSegmentBetweenPointAndNearestStop, vb. Yardımcı Metodlar
+    // buildWeightedGraph, segment işleyiciler ve diğer yardımcı metotlar
     // -------------------------------------------------------------------------
     private Graph<Stop, DefaultWeightedEdge> buildWeightedGraph(String weightType) throws Exception {
         Graph<Stop, RouteEdge> originalGraph = graphBuilderService.buildGraph();
@@ -972,18 +919,18 @@ public class RotaHesaplama {
         if (yolcu instanceof Indirim) {
             double discount = ((Indirim) yolcu).IndirimUygula(baseCost);
             adjustedCost -= discount;
-            System.out.printf("Yolcu %s indirimi: -%.2f TL\n", yolcu.YolcuTipiGoster(), discount);
+            System.out.printf("Yolcu %s indirimi: -%.2f TL%n", yolcu.YolcuTipiGoster(), discount);
         }
         if (odemeYontemi instanceof KentKart) {
             double discount = ((Indirim) odemeYontemi).IndirimUygula(adjustedCost);
             adjustedCost -= discount;
-            System.out.printf("KentKart indirimi: -%.2f TL\n", discount);
+            System.out.printf("KentKart indirimi: -%.2f TL%n", discount);
         } else if (odemeYontemi instanceof KrediKarti) {
             double zam = ((KrediKarti) odemeYontemi).ZamUygula(adjustedCost);
             adjustedCost += zam;
-            System.out.printf("KrediKartı zammı: +%.2f TL\n", zam);
+            System.out.printf("KrediKartı zammı: +%.2f TL%n", zam);
         }
-        System.out.printf("Ayarlanmış Toplam Ücret: %.2f TL\n", adjustedCost);
+        System.out.printf("Ayarlanmış Toplam Ücret: %.2f TL%n", adjustedCost);
     }
 
     /**
@@ -1013,7 +960,56 @@ public class RotaHesaplama {
             return "➡️";
         }
     }
+}
 
+/**
+ * DijkstraSolver – Bu sınıf, JGraphT yapısındaki graf üzerinde
+ * manuel Dijkstra algoritması uygulayarak en kısa yolu hesaplar.
+ * Bu sayede, algoritma sorumluluğu RotaHesaplama’dan ayrılarak SOLID prensiplerine uyum sağlanmış olur.
+ */
+class DijkstraSolver {
+    public static <V, E> List<V> findShortestPath(Graph<V, E> graph, V start, V end) {
+        Map<V, Double> distances = new HashMap<>();
+        Map<V, V> previous = new HashMap<>();
+        PriorityQueue<V> queue = new PriorityQueue<>(Comparator.comparingDouble(distances::get));
 
+        // Tüm düğümlerin başlangıçta uzaklığı sonsuz olarak ayarlanır.
+        for (V vertex : graph.vertexSet()) {
+            distances.put(vertex, Double.POSITIVE_INFINITY);
+            previous.put(vertex, null);
+        }
+        distances.put(start, 0.0);
+        queue.add(start);
 
+        while (!queue.isEmpty()) {
+            V current = queue.poll();
+            if (current.equals(end)) {
+                break;
+            }
+            // Grafın, current düğümündeki tüm kenarlarını döner (undirected olduğu için edgesOf kullanıyoruz)
+            for (E edge : graph.edgesOf(current)) {
+                V neighbor = Graphs.getOppositeVertex(graph, edge, current);
+                double weight = graph.getEdgeWeight(edge);
+                double alt = distances.get(current) + weight;
+                if (alt < distances.get(neighbor)) {
+                    distances.put(neighbor, alt);
+                    previous.put(neighbor, current);
+                    // PriorityQueue'da güncellemek için yeniden ekleme yapıyoruz.
+                    queue.remove(neighbor);
+                    queue.add(neighbor);
+                }
+            }
+        }
+        
+        // Eğer hedefe ulaşılamadıysa boş liste döneriz.
+        if (distances.get(end) == Double.POSITIVE_INFINITY) {
+            return Collections.emptyList();
+        }
+        // Önceki düğümleri takip ederek yolu ters sırada yeniden oluştururuz.
+        LinkedList<V> path = new LinkedList<>();
+        for (V at = end; at != null; at = previous.get(at)) {
+            path.addFirst(at);
+        }
+        return path;
+    }
 }
