@@ -3,8 +3,6 @@ package com.example;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultUndirectedGraph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +15,7 @@ public class GraphBuilderService {
         this.cityDataRepository = cityDataRepository;
     }
 
-    public Graph<Stop, RouteEdge> buildGraph() throws Exception {
+    public ManualGraph buildGraph() throws Exception {
         CityData cityData = cityDataRepository.loadCityData();
 
         // Durakları id'lerine göre haritalıyoruz
@@ -26,12 +24,13 @@ public class GraphBuilderService {
             stopMap.put(stop.getId(), stop);
         }
 
-        // Grafı oluşturuyoruz: Düğümler durak, kenarlar yollar (Yönsüz Graf)
-        Graph<Stop, RouteEdge> graph = new DefaultUndirectedGraph<>(RouteEdge.class);
+        ManualGraph graph = new ManualGraph();
+        // Düğümleri ekliyoruz
         for (Stop stop : cityData.getDuraklar()) {
             graph.addVertex(stop);
         }
 
+        // Kenarları ekliyoruz
         for (Stop stop : cityData.getDuraklar()) {
             if (!stop.isSonDurak() && stop.getNextStops() != null) {
                 for (NextStopInfo ns : stop.getNextStops()) {

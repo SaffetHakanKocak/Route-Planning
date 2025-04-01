@@ -1,6 +1,5 @@
 package com.example;
 
-import org.jgrapht.Graph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -22,13 +21,21 @@ public class GraphBuilderExample implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
-            Graph<Stop, RouteEdge> graph = graphBuilderService.buildGraph();
+            // Manuel grafı oluşturuyoruz.
+            ManualGraph graph = graphBuilderService.buildGraph();
             System.out.println("Graf Kenarları (Yönsüz):");
-            graph.edgeSet().forEach(edge -> {
-                Stop source = graph.getEdgeSource(edge);
-                Stop target = graph.getEdgeTarget(edge);
-                System.out.println(source.getId() + " - " + target.getId() + " | " + edge);
-            });
+            
+            // Her düğümün kenarlarına erişiyoruz.
+            for (Stop stop : graph.getVertices()) {
+                for (EdgeInfo edgeInfo : graph.getEdges(stop)) {
+                    // Aynı kenarı iki kez yazdırmamak için yalnızca 'from' kısmı, düğümden eşleşiyorsa yazdırabiliriz.
+                    if (edgeInfo.getFrom().equals(stop)) {
+                        Stop source = edgeInfo.getFrom();
+                        Stop target = edgeInfo.getTo();
+                        System.out.println(source.getId() + " - " + target.getId() + " | " + edgeInfo.getRouteEdge());
+                    }
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
