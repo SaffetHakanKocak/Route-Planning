@@ -85,6 +85,9 @@
     </style>
 </head>
 <body>
+    <!-- Üst mesaj alanı: Sayfanın en üstünde gösterilecek -->
+    <div id="topMessage" style="text-align:center; background:#f0f0f0; padding:10px; font-size:18px;"></div>
+    
     <div class="container">
         <!-- Sidebar -->
         <div class="sidebar">
@@ -126,17 +129,9 @@
                 </div>
             </div>
 
-            <!-- Orijinal Rota Oluştur Butonu -->
-            <div>
-                <p>Rota oluşturunuz:</p>
-                <div class="button-group">
-                    <button id="calculateRouteBtn" onclick="calculateRoute()">Rota Oluştur (Konsola)</button>
-                </div>
-            </div>
-
             <!-- Dinamik Rota Butonları -->
             <div>
-                <p>Tekli Rota Seçenekleri:</p>
+                <p>Rota Oluştur:</p>
                 <div class="button-group">
                     <button onclick="calculateCheapestRoute()">En Uygun Ücretli</button>
                     <button onclick="calculateFastestRoute()">En Uygun Zamanlı</button>
@@ -491,9 +486,15 @@
                 .then(response => response.json())
                 .then(data => {
                     console.log(data.message);
-                    alert(data.message);
+                    // Sayfanın en üstündeki mesaj alanını güncelle
+                    document.getElementById('topMessage').innerHTML = "<p style='color:green;'>Rotalar Oluşturuldu</p>";
+                    // Butonun arka plan rengini yeşile çevir
+                    document.getElementById('calculateRouteBtn').style.backgroundColor = '#28a745';
                 })
-                .catch(error => console.error('Rota hesaplama hatası:', error));
+                .catch(error => {
+                    console.error('Rota hesaplama hatası:', error);
+                    document.getElementById('topMessage').innerHTML = "<p style='color:red;'>Rota hesaplama hatası oluştu.</p>";
+                });
         }
 
         // Diğer rota hesaplama fonksiyonları (rota HTML’si alındıktan sonra drawRouteFromHTML çağrılıyor)
