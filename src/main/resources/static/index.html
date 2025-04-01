@@ -58,6 +58,12 @@
             font-size: 14px;
             line-height: 1.4;
         }
+        /* Ödeme sonucunun gösterileceği alan */
+        #paymentResult {
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
         /* Arka plan sınıfları */
         .blue-bgc { background-color: #e3f2fd; }
         .orange-bgc { background-color: #ffe0b2; }
@@ -148,6 +154,12 @@
 
             <!-- Rota Bilgilerini Gösterme Alanı -->
             <div id="routeResult"></div>
+            
+            <!-- Ödeme Onay Butonu -->
+            <div style="margin-top:20px;">
+                <button id="approvePaymentButton" onclick="approvePayment()" style="width:100%; padding:10px; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Ödemeyi Onayla</button>
+            </div>
+            <div id="paymentResult"></div>
         </div>
 
         <!-- Harita Alanı -->
@@ -430,7 +442,7 @@
             });
         }
 
-        // Başlangıç Noktası Seçimi (seçim anında herhangi bir en yakın durak çizgisi gösterilmez)
+        // Başlangıç Noktası Seçimi
         function enableStartPointSelection() {
             map.on('click', onMapClickStart);
             document.getElementById('selectStartPointBtn').disabled = true;
@@ -480,30 +492,20 @@
             map.off('click', onMapClickDestination);
         }
 
-        // Orijinal Rota Oluştur (Konsol için)
-        function calculateRoute() {
-            fetch('/api/calculateRoute', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data.message);
-                    // Sayfanın en üstündeki mesaj alanını güncelle
-                    document.getElementById('topMessage').innerHTML = "<p style='color:green;'>Rotalar Oluşturuldu</p>";
-                    // Butonun arka plan rengini yeşile çevir
-                    document.getElementById('calculateRouteBtn').style.backgroundColor = '#28a745';
-                })
-                .catch(error => {
-                    console.error('Rota hesaplama hatası:', error);
-                    document.getElementById('topMessage').innerHTML = "<p style='color:red;'>Rota hesaplama hatası oluştu.</p>";
-                });
-        }
-
         // Diğer rota hesaplama fonksiyonları (rota HTML’si alındıktan sonra drawRouteFromHTML çağrılıyor)
         function calculateCheapestRoute() {
             fetch('/api/calculateCheapestRoute', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.routeHtml) {
+                        // Rota HTML'sini sidebar'a yazdırıyoruz
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        // Ek olarak nihai ücreti içeren gizli bir span ekleyelim
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                         drawRouteFromHTML(data.routeHtml);
                     }
                 })
@@ -515,6 +517,11 @@
                 .then(data => {
                     if (data.routeHtml) {
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                         drawRouteFromHTML(data.routeHtml);
                     }
                 })
@@ -526,6 +533,11 @@
                 .then(data => {
                     if (data.routeHtml) {
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                         drawRouteFromHTML(data.routeHtml);
                     }
                 })
@@ -537,6 +549,11 @@
                 .then(data => {
                     if (data.routeHtml) {
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                         drawRouteFromHTML(data.routeHtml);
                     }
                 })
@@ -548,6 +565,11 @@
                 .then(data => {
                     if (data.routeHtml) {
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                         drawRouteFromHTML(data.routeHtml);
                     }
                 })
@@ -559,10 +581,37 @@
                 .then(data => {
                     if (data.routeHtml) {
                         document.getElementById('routeResult').innerHTML = data.routeHtml;
+                        var regex = /Güncel Ücret:\s*([0-9.]+)\s*TL/;
+                        var match = data.routeHtml.match(regex);
+                        if(match && match[1]){
+                            document.getElementById('routeResult').innerHTML += '<span id="finalCostValue" style="display:none;">' + match[1] + '</span>';
+                        }
                     }
                     drawTaxiRoute();
                 })
                 .catch(error => console.error(error));
+        }
+
+        // Ödemeyi Onayla butonunun işlevini gerçekleştiren fonksiyon
+        function approvePayment() {
+            var finalCostElem = document.getElementById('finalCostValue');
+            if (finalCostElem && finalCostElem.innerText) {
+                var finalCost = parseFloat(finalCostElem.innerText);
+                fetch('/api/approvePayment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ finalCost: finalCost })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('paymentResult').innerHTML = data.paymentResultHtml;
+                })
+                .catch(error => console.error('Ödeme hatası:', error));
+            } else {
+                alert("Nihai ücret bulunamadı! Lütfen önce rota hesaplayın.");
+            }
         }
 
         /* ===== LEJANT EKLEME: Mavi, Yeşil, Kırmızı + Sarı (Taksi), Mor (Yürüme) ===== */

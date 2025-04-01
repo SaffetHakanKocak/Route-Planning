@@ -18,6 +18,7 @@ public class StopController {
     private final CityDataRepository cityDataRepository;
     private final GraphBuilderService graphBuilderService;
     private final UserSelection userSelection;
+    
 
     @Autowired
     public StopController(CityDataRepository cityDataRepository, 
@@ -167,6 +168,23 @@ public class StopController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "success");
         response.put("routeHtml", routeHtml);
+        return response;
+    }
+    
+    // Yeni: Kullanıcı ödeme onayı verdiğinde çağrılacak endpoint
+    @PostMapping("/approvePayment")
+    public Map<String, Object> approvePayment(@RequestBody Map<String, Object> request) {
+        double finalCost = Double.parseDouble(request.get("finalCost").toString());
+        RotaHesaplama rh = new RotaHesaplama(
+            userSelection.getStartLat(), userSelection.getStartLon(),
+            userSelection.getDestLat(), userSelection.getDestLon(),
+            graphBuilderService, userSelection.getSelectedYolcu(),
+            userSelection.getSelectedOdemeYontemi()
+        );
+        String paymentResultHtml = rh.approvePayment(finalCost);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("paymentResultHtml", paymentResultHtml);
         return response;
     }
 }

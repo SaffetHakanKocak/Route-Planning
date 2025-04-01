@@ -26,7 +26,7 @@ public class RotaHesaplama {
         this.odemeYontemi = odemeYontemi;
     }
 
-    // Eklenen getter metodu:
+    // Ödeme yöntemine erişim için getter
     public OdemeYontemi getOdemeYontemi() {
         return this.odemeYontemi;
     }
@@ -110,9 +110,9 @@ public class RotaHesaplama {
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            double finalCost = applyAdjustmentsAndReturn(totalCost, sb);
-            sb.append(String.format("<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>", finalCost));
-
+            // Nihai ücreti hesapla; calculateAdjustedCost metodu hem indirimi/zamı uyguluyor hem HTML'e ekliyor.
+            double finalCost = calculateAdjustedCost(totalCost, sb);
+            // Artık finalCost değeri hesaplandı; ekstra bir append yapmaya gerek yok.
         } catch (Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -200,9 +200,7 @@ public class RotaHesaplama {
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            double finalCost = applyAdjustmentsAndReturn(totalCost, sb);
-            sb.append(String.format("<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>", finalCost));
-
+            double finalCost = calculateAdjustedCost(totalCost, sb);
         } catch (Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -290,9 +288,7 @@ public class RotaHesaplama {
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            double finalCost = applyAdjustmentsAndReturn(totalCost, sb);
-            sb.append(String.format("<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>", finalCost));
-
+            double finalCost = calculateAdjustedCost(totalCost, sb);
         } catch (Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -301,7 +297,7 @@ public class RotaHesaplama {
         return sb.toString();
     }
 
-    // 4) Sadece Otobüs Rota
+    // 4) Sadece Otobüs Rota (Dinamik)
     public String getSadeceOtobusHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#e8f5e9; padding:15px; border:1px solid #ccc; border-radius:5px;'>");
@@ -315,13 +311,12 @@ public class RotaHesaplama {
                     busGraph.addVertex(s);
                 }
             }
-            // Sadece otobüs durakları arasında kenarları ekleyelim.
+            // Sadece otobüs durakları arasındaki kenarları ekleyelim.
             for (Stop s : originalGraph.getVertices()) {
                 if ("bus".equalsIgnoreCase(s.getType())) {
                     for (EdgeInfo edgeInfo : originalGraph.getEdges(s)) {
                         Stop neighbor = edgeInfo.getTo();
                         if ("bus".equalsIgnoreCase(neighbor.getType())) {
-                            // Çift eklemeyi önlemek için s'nin id'si küçükse ekleyelim.
                             if (s.getId().compareTo(neighbor.getId()) < 0) {
                                 busGraph.addEdge(s, neighbor, edgeInfo.getRouteEdge());
                             }
@@ -329,13 +324,19 @@ public class RotaHesaplama {
                     }
                 }
             }
+            // Sadece Otobüs metodunun güncellenmiş kısmı
             SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, busGraph);
             double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
+
             sb.append("<p style='font-weight:bold; color:#555;'>");
             sb.append("📍 Başlangıç Noktasına En Yakın Otobüs Durağı: " + startSegment.stop.getName());
             sb.append(String.format(" (%.2f km) ", distanceToNearest));
+            if (startSegment.cost > 0) {
+            sb.append(" → 🚕 Taksi => " + String.format("%.2f TL", startSegment.cost));
+            } else {
+            sb.append(" → 🚶 Yürüme => 0 TL");
+            }
             sb.append("</p>");
-
             Stop nearestDestStop = findNearestStop(destLat, destLon, busGraph);
             List<Stop> path = DijkstraSolver.findShortestPath(busGraph, startSegment.stop, nearestDestStop, "cost");
 
@@ -385,8 +386,7 @@ public class RotaHesaplama {
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            double finalCost = applyAdjustmentsAndReturn(totalCost, sb);
-            sb.append(String.format("<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>", finalCost));
+            double finalCost = calculateAdjustedCost(totalCost, sb);
         } catch(Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -395,7 +395,7 @@ public class RotaHesaplama {
         return sb.toString();
     }
 
-    // 5) Sadece Tramvay Rota
+    // 5) Sadece Tramvay Rota (Dinamik)
     public String getSadeceTramvayHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#fce4ec; padding:15px; border:1px solid #ccc; border-radius:5px;'>");
@@ -420,13 +420,19 @@ public class RotaHesaplama {
                     }
                 }
             }
-            SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, tramGraph);
-            double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
-            sb.append("<p style='font-weight:bold; color:#555;'>");
-            sb.append("📍 Başlangıç Noktasına En Yakın Tramvay Durağı: " + startSegment.stop.getName());
-            sb.append(String.format(" (%.2f km) ", distanceToNearest));
-            sb.append("</p>");
+            // Sadece Tramvay metodunun güncellenmiş kısmı
+SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, tramGraph);
+double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
 
+sb.append("<p style='font-weight:bold; color:#555;'>");
+sb.append("📍 Başlangıç Noktasına En Yakın Tramvay Durağı: " + startSegment.stop.getName());
+sb.append(String.format(" (%.2f km) ", distanceToNearest));
+if (startSegment.cost > 0) {
+    sb.append(" → 🚕 Taksi => " + String.format("%.2f TL", startSegment.cost));
+} else {
+    sb.append(" → 🚶 Yürüme => 0 TL");
+}
+sb.append("</p>");
             Stop nearestDestStop = findNearestStop(destLat, destLon, tramGraph);
             List<Stop> path = DijkstraSolver.findShortestPath(tramGraph, startSegment.stop, nearestDestStop, "cost");
 
@@ -478,8 +484,7 @@ public class RotaHesaplama {
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            double finalCost = applyAdjustmentsAndReturn(totalCost, sb);
-            sb.append(String.format("<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>", finalCost));
+            double finalCost = calculateAdjustedCost(totalCost, sb);
         } catch(Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -498,11 +503,15 @@ public class RotaHesaplama {
             Taxi taxi = new Taxi();
             double cost = taxi.UcretHesapla(distance);
             double taxiTime = taxi.SureHesapla(distance);
-            int time = (int)Math.ceil(taxiTime);
+            int time = (int) Math.ceil(taxiTime);
             sb.append("<p style='font-weight:bold; color:#555;'>");
             sb.append("🚕 Direkt Taksi ile Başlangıç → Hedef: ");
             sb.append(String.format("Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL", distance, time, cost));
             sb.append("</p>");
+            
+            // İndirimi/zamı uygulayarak nihai ücreti hesapla ve HTML'e ekle
+            double finalCost = calculateAdjustedCost(cost, sb);
+            
         } catch(Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -510,6 +519,7 @@ public class RotaHesaplama {
         sb.append("</div>");
         return sb.toString();
     }
+    
 
     // Genel rota stratejisi seçimini yapan metot
     public String getRouteHtml(String strategyKey) {
@@ -618,16 +628,24 @@ public class RotaHesaplama {
         }
     }
 
-    private double applyAdjustmentsAndReturn(double baseCost, StringBuilder sb) {
+    /**
+     * Sadece nihai ücreti hesaplar (indirimi/zamı uygular),
+     * fakat bakiye/limit güncellemesi yapmaz.
+     */
+    private double calculateAdjustedCost(double baseCost, StringBuilder sb) {
         double adjustedCost = baseCost;
+    
+        // 1. Yolcu indirimi (varsa)
         if (yolcu instanceof Indirim) {
             double discount = ((Indirim) yolcu).IndirimUygula(baseCost);
             adjustedCost -= discount;
             sb.append(String.format("<p style='color:green;'>🚶 Yolcu %s indirimi: -%.2f TL</p>",
                     yolcu.YolcuTipiGoster(), discount));
         }
+    
+        // 2. Ödeme yöntemiyle ilgili ek indirim veya zam
         if (odemeYontemi instanceof KentKart) {
-            double discount = ((Indirim) odemeYontemi).IndirimUygula(adjustedCost);
+            double discount = ((KentKart) odemeYontemi).IndirimUygula(adjustedCost);
             adjustedCost -= discount;
             sb.append(String.format("<p style='color:green;'>💳 KentKart indirimi: -%.2f TL</p>", discount));
         } else if (odemeYontemi instanceof KrediKarti) {
@@ -635,10 +653,53 @@ public class RotaHesaplama {
             adjustedCost += zam;
             sb.append(String.format("<p style='color:red;'>💳 KrediKart zammı: +%.2f TL</p>", zam));
         }
+    
+        // Hem görünür hem de gizli span ekleyelim
+        sb.append(String.format(
+                "<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>" +
+                "<span id='finalCostValue' style='display:none;'>%.2f</span>",
+                adjustedCost, adjustedCost));
+    
         return adjustedCost;
     }
+    
 
-   
+    /**
+     * Kullanıcı ödeme onayı verdiğinde çağrılacak ödeme metodudur.
+     * Bu metod, ödeme yöntemine göre bakiye/limit düşümünü gerçekleştirir.
+     */
+    public String approvePayment(double cost) {
+        StringBuilder sb = new StringBuilder();
+        if (odemeYontemi instanceof KentKart) {
+            KentKart kKart = (KentKart) odemeYontemi;
+            if (kKart.getBakiye() < cost) {
+                sb.append(String.format("<p style='color:red;'>⚠ KentKart bakiyesi yetersiz! (Bakiye: %.2f TL)</p>", kKart.getBakiye()));
+            } else {
+                kKart.setBakiye(kKart.getBakiye() - cost);
+                sb.append(String.format("<p>KentKart bakiyenizden %.2f TL çekildi. Kalan bakiye: %.2f TL</p>",
+                        cost, kKart.getBakiye()));
+            }
+        } else if (odemeYontemi instanceof KrediKarti) {
+            KrediKarti kk = (KrediKarti) odemeYontemi;
+            if (kk.getKrediLimiti() < cost) {
+                sb.append(String.format("<p style='color:red;'>⚠ Kredi Kartı limitiniz yetersiz! (Limit: %.2f TL)</p>", kk.getKrediLimiti()));
+            } else {
+                kk.setKrediLimiti(kk.getKrediLimiti() - cost);
+                sb.append(String.format("<p>Kredi Kartınızdan %.2f TL çekildi. Kalan limit: %.2f TL</p>",
+                        cost, kk.getKrediLimiti()));
+            }
+        } else if (odemeYontemi instanceof Nakit) {
+            Nakit nakit = (Nakit) odemeYontemi;
+            if (nakit.getNakitMiktari() < cost) {
+                sb.append(String.format("<p style='color:red;'>⚠ Nakit miktarınız yetersiz! (Miktar: %.2f TL)</p>", nakit.getNakitMiktari()));
+            } else {
+                nakit.setNakitMiktari(nakit.getNakitMiktari() - cost);
+                sb.append(String.format("<p>Nakitten %.2f TL çekildi. Kalan miktar: %.2f TL</p>",
+                        cost, nakit.getNakitMiktari()));
+            }
+        }
+        return sb.toString();
+    }
 
     // İç sınıf: SegmentResult
     private static class SegmentResult {

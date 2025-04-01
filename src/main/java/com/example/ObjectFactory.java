@@ -18,9 +18,9 @@ public class ObjectFactory {
         yolcuMap.put("genel", Genel::new);
         
         // Ödeme tipi kayıtları
-        odemeMap.put("nakit", Nakit::new);
-        odemeMap.put("kredikarti", KrediKarti::new);
-        odemeMap.put("kentkart", KentKart::new);
+        odemeMap.put("nakit", () -> new Nakit(200.0));          // Örnek: 200 TL nakit
+        odemeMap.put("kredikarti", () -> new KrediKarti(500.0));  // Örnek: 500 TL kredi limiti
+        odemeMap.put("kentkart", () -> new KentKart(100.0));      // Örnek: 100 TL bakiye
     }
     
     public static Yolcu createYolcu(String type) {

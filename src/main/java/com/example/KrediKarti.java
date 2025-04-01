@@ -2,10 +2,16 @@ package com.example;
 
 public class KrediKarti extends OdemeYontemi implements Zam {
     private final double ZamYuzdesi = 0.30;
+    private double krediLimiti;
+
+    // Constructor ile kredi limiti belirlenir.
+    public KrediKarti(double krediLimiti) {
+        this.krediLimiti = krediLimiti;
+    }
 
     @Override
     public String OdemeYontemiGoster() {
-        return "Kredi Kartı";
+        return "Kredi Kartı (Limit: " + String.format("%.2f", krediLimiti) + " TL)";
     }
     
     @Override
@@ -21,5 +27,13 @@ public class KrediKarti extends OdemeYontemi implements Zam {
     @Override
     public double ZamUygula(double toplamUcret) {
         return toplamUcret * ZamYuzdesi;
+    }
+    
+    public double getKrediLimiti() {
+        return krediLimiti;
+    }
+
+    public void setKrediLimiti(double krediLimiti) {
+        this.krediLimiti = krediLimiti;
     }
 }
