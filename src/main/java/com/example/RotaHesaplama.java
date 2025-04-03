@@ -1,6 +1,7 @@
 package com.example;
 
 import java.util.List;
+import java.util.Locale;
 
 public class RotaHesaplama {
 
@@ -26,7 +27,6 @@ public class RotaHesaplama {
         this.odemeYontemi = odemeYontemi;
     }
 
-    // Ödeme yöntemine erişim için getter
     public OdemeYontemi getOdemeYontemi() {
         return this.odemeYontemi;
     }
@@ -96,23 +96,22 @@ public class RotaHesaplama {
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
 
-            sb.append("<div style='margin-top:10px;'><b>Hedef Segment Detayları:</b></div>");
+            sb.append("<div style='margin-top:10px;'><b>Hedefe Varış:</b></div>");
             sb.append(String.format(
                 "<p>Son Durak → Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km</p>",
                 endSegment.time, endSegment.cost, endSegment.distance
             ));
 
             sb.append("<hr style='margin:10px 0;'>");
-            sb.append("<div><b>🔎 Toplam:</b></div>");
+            sb.append("<div><b>🔎 Rota Özeti:</b></div>");
             sb.append("<ul style='list-style:none; padding-left:0; margin:0;'>");
             sb.append(String.format("<li>💸 Ücret: <b>%.2f TL</b></li>", totalCost));
             sb.append(String.format("<li>⏱️ Süre: <b>%d dk</b></li>", totalTime));
             sb.append(String.format("<li>📏 Mesafe: <b>%.2f km</b></li>", totalDistance));
             sb.append("</ul>");
 
-            // Nihai ücreti hesapla; calculateAdjustedCost metodu hem indirimi/zamı uyguluyor hem HTML'e ekliyor.
             double finalCost = calculateAdjustedCost(totalCost, sb);
-            // Artık finalCost değeri hesaplandı; ekstra bir append yapmaya gerek yok.
+
         } catch (Exception e) {
             e.printStackTrace();
             sb.append("<p style='color:red;'>Hata: " + e.getMessage() + "</p>");
@@ -186,14 +185,14 @@ public class RotaHesaplama {
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
 
-            sb.append("<div style='margin-top:10px;'><b>Hedef Segment Detayları:</b></div>");
+            sb.append("<div style='margin-top:10px;'><b>Hedefe Varış:</b></div>");
             sb.append(String.format(
                 "<p>Son Durak → Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km</p>",
                 endSegment.time, endSegment.cost, endSegment.distance
             ));
 
             sb.append("<hr style='margin:10px 0;'>");
-            sb.append("<div><b>🔎 Toplam:</b></div>");
+            sb.append("<div><b>🔎 Rota Özeti:</b></div>");
             sb.append("<ul style='list-style:none; padding-left:0; margin:0;'>");
             sb.append(String.format("<li>💸 Ücret: <b>%.2f TL</b></li>", totalCost));
             sb.append(String.format("<li>⏱️ Süre: <b>%d dk</b></li>", totalTime));
@@ -274,14 +273,14 @@ public class RotaHesaplama {
             totalCost     += endSegment.cost;
             totalTime     += endSegment.time;
 
-            sb.append("<div style='margin-top:10px;'><b>Hedef Segment Detayları:</b></div>");
+            sb.append("<div style='margin-top:10px;'><b>Hedefe Varış:</b></div>");
             sb.append(String.format(
                 "<p>Son Durak → Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km</p>",
                 endSegment.time, endSegment.cost, endSegment.distance
             ));
 
             sb.append("<hr style='margin:10px 0;'>");
-            sb.append("<div><b>🔎 Toplam:</b></div>");
+            sb.append("<div><b>🔎 Rota Özeti:</b></div>");
             sb.append("<ul style='list-style:none; padding-left:0; margin:0;'>");
             sb.append(String.format("<li>💸 Ücret: <b>%.2f TL</b></li>", totalCost));
             sb.append(String.format("<li>⏱️ Süre: <b>%d dk</b></li>", totalTime));
@@ -301,17 +300,16 @@ public class RotaHesaplama {
     public String getSadeceOtobusHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#e8f5e9; padding:15px; border:1px solid #ccc; border-radius:5px;'>");
-        sb.append("<h2 style='margin-top:0;'>🚌 Sadece Otobüs Rota (Dinamik)</h2>");
+        sb.append("<h2 style='margin-top:0;'>🚌 Sadece Otobüs Rota </h2>");
         try {
             ManualGraph originalGraph = graphBuilderService.buildGraph();
             ManualGraph busGraph = new ManualGraph();
-            // Sadece "bus" tipi durakları ekleyelim.
             for (Stop s : originalGraph.getVertices()) {
                 if ("bus".equalsIgnoreCase(s.getType())) {
                     busGraph.addVertex(s);
                 }
             }
-            // Sadece otobüs durakları arasındaki kenarları ekleyelim.
+
             for (Stop s : originalGraph.getVertices()) {
                 if ("bus".equalsIgnoreCase(s.getType())) {
                     for (EdgeInfo edgeInfo : originalGraph.getEdges(s)) {
@@ -324,7 +322,7 @@ public class RotaHesaplama {
                     }
                 }
             }
-            // Sadece Otobüs metodunun güncellenmiş kısmı
+    
             SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, busGraph);
             double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
 
@@ -375,11 +373,11 @@ public class RotaHesaplama {
             totalDistance += endSegment.distance;
             totalCost += endSegment.cost;
             totalTime += endSegment.time;
-            sb.append("<div style='margin-top:10px;'><b>Hedef Segment Detayları:</b></div>");
+            sb.append("<div style='margin-top:10px;'><b>Hedefe Varış:</b></div>");
             sb.append(String.format("<p>Son Durak → Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km</p>",
                     endSegment.time, endSegment.cost, endSegment.distance));
             sb.append("<hr style='margin:10px 0;'>");
-            sb.append("<div><b>🔎 Toplam (Otobüs):</b></div>");
+            sb.append("<div><b>🔎 Rota Özeti:</b></div>");
             sb.append("<ul style='list-style:none; padding-left:0; margin:0;'>");
             sb.append(String.format("<li>💸 Ücret: <b>%.2f TL</b></li>", totalCost));
             sb.append(String.format("<li>⏱️ Süre: <b>%d dk</b></li>", totalTime));
@@ -399,7 +397,7 @@ public class RotaHesaplama {
     public String getSadeceTramvayHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#fce4ec; padding:15px; border:1px solid #ccc; border-radius:5px;'>");
-        sb.append("<h2 style='margin-top:0;'>🚋 Sadece Tramvay Rota (Dinamik)</h2>");
+        sb.append("<h2 style='margin-top:0;'>🚋 Sadece Tramvay Rota</h2>");
         try {
             ManualGraph originalGraph = graphBuilderService.buildGraph();
             ManualGraph tramGraph = new ManualGraph();
@@ -420,7 +418,7 @@ public class RotaHesaplama {
                     }
                 }
             }
-            // Sadece Tramvay metodunun güncellenmiş kısmı
+            
 SegmentResult startSegment = processSegmentBetweenPointAndNearestStop(startLat, startLon, tramGraph);
 double distanceToNearest = distanceBetween(startLat, startLon, startSegment.stop.getLat(), startSegment.stop.getLon());
 
@@ -473,11 +471,11 @@ sb.append("</p>");
             totalDistance += endSegment.distance;
             totalCost += endSegment.cost;
             totalTime += endSegment.time;
-            sb.append("<div style='margin-top:10px;'><b>Hedef Segment Detayları:</b></div>");
+            sb.append("<div style='margin-top:10px;'><b>Hedefe Varış:</b></div>");
             sb.append(String.format("<p>Son Durak → Hedef | ⏳ Süre=%d dk, 💰 Ücret=%.2f TL, 📏 Mesafe=%.2f km</p>",
                     endSegment.time, endSegment.cost, endSegment.distance));
             sb.append("<hr style='margin:10px 0;'>");
-            sb.append("<div><b>🔎 Toplam (Tramvay):</b></div>");
+            sb.append("<div><b>🔎 Rota Özeti:</b></div>");
             sb.append("<ul style='list-style:none; padding-left:0; margin:0;'>");
             sb.append(String.format("<li>💸 Ücret: <b>%.2f TL</b></li>", totalCost));
             sb.append(String.format("<li>⏱️ Süre: <b>%d dk</b></li>", totalTime));
@@ -497,7 +495,7 @@ sb.append("</p>");
     public String getSadeceTaxiHtml() {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='background:#fff9c4; padding:15px; border:1px solid #ccc; border-radius:5px;'>");
-        sb.append("<h2 style='margin-top:0;'>🚖 Sadece Taksi Rota (Dinamik)</h2>");
+        sb.append("<h2 style='margin-top:0;'>🚖 Sadece Taksi Rota</h2>");
         try {
             double distance = distanceBetween(startLat, startLon, destLat, destLon);
             Taxi taxi = new Taxi();
@@ -505,11 +503,10 @@ sb.append("</p>");
             double taxiTime = taxi.SureHesapla(distance);
             int time = (int) Math.ceil(taxiTime);
             sb.append("<p style='font-weight:bold; color:#555;'>");
-            sb.append("🚕 Direkt Taksi ile Başlangıç → Hedef: ");
-            sb.append(String.format("Mesafe: %.2f km, Süre: %d dk, Ücret: %.2f TL", distance, time, cost));
+            sb.append("🚕 Direkt Taksi Kullanımı Başlangıç → Hedef: ");
+            sb.append(String.format("📏 Mesafe: %.2f km, ⏳ Süre: %d dk, 💰 Ücret: %.2f TL", distance, time, cost));
             sb.append("</p>");
             
-            // İndirimi/zamı uygulayarak nihai ücreti hesapla ve HTML'e ekle
             double finalCost = calculateAdjustedCost(cost, sb);
             
         } catch(Exception e) {
@@ -549,10 +546,8 @@ sb.append("</p>");
         return strategy.calculateRouteHtml();
     }
 
-    // Yardımcı Metotlar
 
     private ManualGraph buildWeightedGraph(String weightType) throws Exception {
-        // Manuel olarak grafı oluşturuyoruz.
         return graphBuilderService.buildGraph();
     }
 
@@ -597,7 +592,6 @@ sb.append("</p>");
         return nearest;
     }
 
-    // Manuel olarak iki düğüm arasındaki kenarı bulma metodu
     private RouteEdge getEdgeBetween(ManualGraph graph, Stop s1, Stop s2) {
         for (EdgeInfo edgeInfo : graph.getEdges(s1)) {
             if (edgeInfo.getTo().equals(s2)) {
@@ -628,14 +622,9 @@ sb.append("</p>");
         }
     }
 
-    /**
-     * Sadece nihai ücreti hesaplar (indirimi/zamı uygular),
-     * fakat bakiye/limit güncellemesi yapmaz.
-     */
     private double calculateAdjustedCost(double baseCost, StringBuilder sb) {
         double adjustedCost = baseCost;
     
-        // 1. Yolcu indirimi (varsa)
         if (yolcu instanceof Indirim) {
             double discount = ((Indirim) yolcu).IndirimUygula(baseCost);
             adjustedCost -= discount;
@@ -643,7 +632,6 @@ sb.append("</p>");
                     yolcu.YolcuTipiGoster(), discount));
         }
     
-        // 2. Ödeme yöntemiyle ilgili ek indirim veya zam
         if (odemeYontemi instanceof KentKart) {
             double discount = ((KentKart) odemeYontemi).IndirimUygula(adjustedCost);
             adjustedCost -= discount;
@@ -654,20 +642,17 @@ sb.append("</p>");
             sb.append(String.format("<p style='color:red;'>💳 KrediKart zammı: +%.2f TL</p>", zam));
         }
     
-        // Hem görünür hem de gizli span ekleyelim
-        sb.append(String.format(
-                "<p style='color:#007bff;'><b>Güncel Ücret: %.2f TL</b></p>" +
-                "<span id='finalCostValue' style='display:none;'>%.2f</span>",
-                adjustedCost, adjustedCost));
+        
+    String displayCost = String.format("%.2f", adjustedCost).replace('.', ',');
+    String parseCost = String.format(Locale.US, "%.2f", adjustedCost);
+    
+    sb.append("<p style='color:#007bff;'><b>Güncel Ücret: " + displayCost + " TL</b></p>");
+    sb.append("<span id='finalCostValue' style='display:none;'>" + parseCost + "</span>");
     
         return adjustedCost;
-    }
-    
+}
 
-    /**
-     * Kullanıcı ödeme onayı verdiğinde çağrılacak ödeme metodudur.
-     * Bu metod, ödeme yöntemine göre bakiye/limit düşümünü gerçekleştirir.
-     */
+    
     public String approvePayment(double cost) {
         StringBuilder sb = new StringBuilder();
         if (odemeYontemi instanceof KentKart) {
@@ -701,7 +686,6 @@ sb.append("</p>");
         return sb.toString();
     }
 
-    // İç sınıf: SegmentResult
     private static class SegmentResult {
         public double distance;
         public double cost;

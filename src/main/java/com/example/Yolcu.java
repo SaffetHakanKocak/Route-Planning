@@ -1,11 +1,9 @@
 package com.example;
 
 public abstract class Yolcu {
-    // Yolcu tipi gösterimini sağlayan abstract metot.
     public abstract String YolcuTipiGoster();
 }
 
-// Ogrenci sınıfı, Yolcu'dan türetilmiş ve Indirim arayüzünü implement etmiştir.
 class Ogrenci extends Yolcu implements Indirim {
 
     private double indirimYuzdesi = 0.50;
@@ -15,7 +13,6 @@ class Ogrenci extends Yolcu implements Indirim {
         return "Öğrenci";
     }
 
-    // Örnek olarak toplam ücretten %50 indirim uygular.
     @Override
     public double IndirimUygula(double toplamUcret) {
         return toplamUcret * indirimYuzdesi;
@@ -26,7 +23,6 @@ class Ogrenci extends Yolcu implements Indirim {
     }
 }
 
-// Yasli sınıfı, Yolcu'dan türetilmiş ve Indirim arayüzünü implement etmiştir.
 class Yasli extends Yolcu implements Indirim {
 
     private double indirimYuzdesi = 0.30;
@@ -36,7 +32,6 @@ class Yasli extends Yolcu implements Indirim {
         return "Yaşlı";
     }
 
-    // Örnek olarak toplam ücretten %30 indirim uygular.
     @Override
     public double IndirimUygula(double toplamUcret) {
         return toplamUcret * indirimYuzdesi;
@@ -47,7 +42,6 @@ class Yasli extends Yolcu implements Indirim {
     }
 }
 
-// Genel sınıfı, Yolcu'dan türetilmiş ancak herhangi bir indirim uygulamaz.
 class Genel extends Yolcu {
 
     @Override

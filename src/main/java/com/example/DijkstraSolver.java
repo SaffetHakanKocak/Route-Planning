@@ -44,7 +44,6 @@ public class DijkstraSolver {
                 if (alt < distances.get(neighbor)) {
                     distances.put(neighbor, alt);
                     previous.put(neighbor, current);
-                    // Yeniden kuyruğa eklemek için önce varsa kaldırıyoruz.
                     queue.remove(neighbor);
                     queue.add(neighbor);
                 }

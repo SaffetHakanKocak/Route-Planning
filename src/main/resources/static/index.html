@@ -5,7 +5,6 @@
     <title>Durak Haritası</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
-        /* Sayfa ve temel stiller */
         body, html {
             margin: 0;
             padding: 0;
@@ -52,24 +51,20 @@
             width: 75%;
             height: 100vh;
         }
-        /* Rota bilgilerini göstereceğimiz alan */
         #routeResult {
             margin-top: 20px;
             font-size: 14px;
             line-height: 1.4;
         }
-        /* Ödeme sonucunun gösterileceği alan */
         #paymentResult {
             margin-top: 10px;
             font-size: 14px;
             line-height: 1.4;
         }
-        /* Arka plan sınıfları */
         .blue-bgc { background-color: #e3f2fd; }
         .orange-bgc { background-color: #ffe0b2; }
         .purple-bgc { background-color: #f3e5f5; }
 
-        /* ====== LEJANT STİLLERİ ====== */
         .leaflet-control.legend {
             background: white;
             border: 1px solid #ccc;
@@ -91,15 +86,12 @@
     </style>
 </head>
 <body>
-    <!-- Üst mesaj alanı: Sayfanın en üstünde gösterilecek -->
     <div id="topMessage" style="text-align:center; background:#f0f0f0; padding:10px; font-size:18px;"></div>
     
     <div class="container">
-        <!-- Sidebar -->
         <div class="sidebar">
             <h2>Seçenekler</h2>
 
-            <!-- Yolcu Tipi Seçimi -->
             <div>
                 <p>Yolcu tipini seçiniz:</p>
                 <div class="button-group">
@@ -109,7 +101,6 @@
                 </div>
             </div>
 
-            <!-- Ödeme Türü Seçimi -->
             <div>
                 <p>Ödeme türünü seçiniz:</p>
                 <div class="button-group">
@@ -119,7 +110,6 @@
                 </div>
             </div>
 
-            <!-- Başlangıç Noktası Seçimi -->
             <div>
                 <p>Başlangıç noktası seçiniz:</p>
                 <div class="button-group">
@@ -127,7 +117,6 @@
                 </div>
             </div>
 
-            <!-- Hedef Konum Seçimi -->
             <div>
                 <p>Hedef konum seçiniz:</p>
                 <div class="button-group">
@@ -135,7 +124,6 @@
                 </div>
             </div>
 
-            <!-- Dinamik Rota Butonları -->
             <div>
                 <p>Rota Oluştur:</p>
                 <div class="button-group">
@@ -152,24 +140,19 @@
                 </div>
             </div>
 
-            <!-- Rota Bilgilerini Gösterme Alanı -->
             <div id="routeResult"></div>
             
-            <!-- Ödeme Onay Butonu -->
             <div style="margin-top:20px;">
                 <button id="approvePaymentButton" onclick="approvePayment()" style="width:100%; padding:10px; background-color:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">Ödemeyi Onayla</button>
             </div>
             <div id="paymentResult"></div>
         </div>
 
-        <!-- Harita Alanı -->
         <div id="map"></div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
-        // Haritayı başlatma ve global değişkenler
         const map = L.map('map').setView([40.78259, 29.94628], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
@@ -184,7 +167,6 @@
         let startPointMarker = null;
         let destinationPointMarker = null;
 
-        // OSRM üzerinden rota koordinatlarını alma fonksiyonu
         function getRouteCoordinates(lat1, lon1, lat2, lon2) {
             const url = `http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
             return fetch(url)
@@ -201,7 +183,6 @@
                 });
         }
 
-        // Durak verilerini çekip haritaya ekleme
         fetch('/api/stops')
             .then(response => response.json())
             .then(stopsData => {
@@ -228,7 +209,6 @@
                     stopsMap[stop.id] = stop;
                     stopsMapByName[stop.name] = { lat: stop.lat, lon: stop.lon, type: stop.type };
                 });
-                // Duraklar arası bağlantıları çizme
                 stopsData.forEach(stop => {
                     if (stop.nextStops) {
                         stop.nextStops.forEach(ns => {
@@ -265,9 +245,8 @@
             })
             .catch(error => console.error('Veri çekme hatası:', error));
 
-        // Haversine formülü ile mesafe hesaplama fonksiyonları
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Dünya yarıçapı (km)
+            const R = 6371;
             const dLat = deg2rad(lat2 - lat1);
             const dLon = deg2rad(lon2 - lon1);
             const a =
@@ -282,9 +261,6 @@
             return deg * (Math.PI / 180);
         }
 
-        // Rota HTML’sinden güzergahı çizip, hem başlangıç noktasından en yakın durağa hem de;
-        // varsa rotaya ait son duraktan hedef konuma gidiş çizgisini ekleyen fonksiyon.
-        // Mesafe 3 km’den az ise çizgi mor, 3 km veya fazlaysa sarı renkte çizilir.
         function drawRouteFromHTML(htmlString) {
             if (currentRouteLayer) {
                 map.removeLayer(currentRouteLayer);
@@ -312,7 +288,6 @@
                 }
             });
             var routeLayer = L.layerGroup();
-            // Her segment için rota koordinatlarını alıp çizgi oluşturma
             var promises = segments.map(segment => {
                 return getRouteCoordinates(segment.start.lat, segment.start.lon, segment.end.lat, segment.end.lon)
                     .then(routeCoords => {
@@ -329,7 +304,6 @@
                     });
             });
 
-            // Başlangıç noktasına en yakın durağı ekleme (mesafe 3 km’den az ise mor, yoksa sarı)
             var nearestStopPromise = new Promise((resolve, reject) => {
                 if (startPointMarker && segments.length > 0) {
                     const startLatLng = startPointMarker.getLatLng();
@@ -364,11 +338,9 @@
                 }
             });
 
-            // EK: Rotaya ait son duraktan hedef konuma gidişi ekleme (varsa)
             var destinationLinePromise = new Promise((resolve, reject) => {
                 if (destinationPointMarker && segments.length > 0) {
                     const destinationLatLng = destinationPointMarker.getLatLng();
-                    // Son segmentin "end" durakını son durak olarak alıyoruz.
                     const lastSegment = segments[segments.length - 1];
                     const finalStop = lastSegment.end;
                     const distance = getDistanceFromLatLonInKm(finalStop.lat, finalStop.lon, destinationLatLng.lat, destinationLatLng.lng);
@@ -398,7 +370,6 @@
                 });
         }
 
-        // Sadece taksi için; başlangıçtan hedefe gerçekçi rota çizimi (sarı)
         function drawTaxiRoute() {
             if (!startPointMarker || !destinationPointMarker) {
                 alert("Lütfen başlangıç ve hedef noktalarını seçin.");
@@ -416,7 +387,6 @@
                 .catch(error => console.error("Taxi rota çizilirken hata:", error));
         }
 
-        // Yolcu Tipi Seçimi
         function selectPassengerType(type) {
             document.getElementById('genelBtn').disabled = true;
             document.getElementById('ogrenciBtn').disabled = true;
@@ -429,7 +399,6 @@
             });
         }
 
-        // Ödeme Türü Seçimi
         function selectPaymentType(type) {
             document.getElementById('nakitBtn').disabled = true;
             document.getElementById('kredikartiBtn').disabled = true;
@@ -442,7 +411,6 @@
             });
         }
 
-        // Başlangıç Noktası Seçimi
         function enableStartPointSelection() {
             map.on('click', onMapClickStart);
             document.getElementById('selectStartPointBtn').disabled = true;
@@ -467,7 +435,6 @@
             map.off('click', onMapClickStart);
         }
 
-        // Hedef Noktası Seçimi
         function enableDestinationPointSelection() {
             map.on('click', onMapClickDestination);
             document.getElementById('selectDestinationPointBtn').disabled = true;
@@ -492,7 +459,6 @@
             map.off('click', onMapClickDestination);
         }
 
-        // Diğer rota hesaplama fonksiyonları (rota HTML’si alındıktan sonra drawRouteFromHTML çağrılıyor)
         function calculateCheapestRoute() {
             fetch('/api/calculateCheapestRoute', { method: 'POST' })
                 .then(response => response.json())
@@ -592,7 +558,6 @@
                 .catch(error => console.error(error));
         }
 
-        // Ödemeyi Onayla butonunun işlevini gerçekleştiren fonksiyon
         function approvePayment() {
             var finalCostElem = document.getElementById('finalCostValue');
             if (finalCostElem && finalCostElem.innerText) {
@@ -614,7 +579,6 @@
             }
         }
 
-        /* ===== LEJANT EKLEME: Mavi, Yeşil, Kırmızı + Sarı (Taksi), Mor (Yürüme) ===== */
         var legend = L.control({ position: 'bottomright' });
         legend.onAdd = function(map) {
             var div = L.DomUtil.create('div', 'leaflet-control legend');

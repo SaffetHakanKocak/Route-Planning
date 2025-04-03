@@ -5,22 +5,18 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class ObjectFactory {
-    // Yolcu üretimi için anahtar-supplier eşleştirmesi
     private static final Map<String, Supplier<Yolcu>> yolcuMap = new HashMap<>();
     
-    // Ödeme yöntemi üretimi için anahtar-supplier eşleştirmesi
     private static final Map<String, Supplier<OdemeYontemi>> odemeMap = new HashMap<>();
     
     static {
-        // Yolcu tipi kayıtları
         yolcuMap.put("ogrenci", Ogrenci::new);
         yolcuMap.put("yasli", Yasli::new);
         yolcuMap.put("genel", Genel::new);
         
-        // Ödeme tipi kayıtları
-        odemeMap.put("nakit", () -> new Nakit(200.0));          // Örnek: 200 TL nakit
-        odemeMap.put("kredikarti", () -> new KrediKarti(500.0));  // Örnek: 500 TL kredi limiti
-        odemeMap.put("kentkart", () -> new KentKart(100.0));      // Örnek: 100 TL bakiye
+        odemeMap.put("nakit", () -> new Nakit(200.0));          
+        odemeMap.put("kredikarti", () -> new KrediKarti(500.0));  
+        odemeMap.put("kentkart", () -> new KentKart(100.0));      
     }
     
     public static Yolcu createYolcu(String type) {

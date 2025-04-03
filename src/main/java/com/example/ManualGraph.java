@@ -1,6 +1,10 @@
 package com.example;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class ManualGraph {
     private Map<Stop, List<EdgeInfo>> adjacencyList;
@@ -18,7 +22,6 @@ public class ManualGraph {
     public void addEdge(Stop s1, Stop s2, RouteEdge routeEdge) {
         addVertex(s1);
         addVertex(s2);
-        // Her iki yönde de kenarı ekleyerek yönsüz graf oluşturuyoruz.
         adjacencyList.get(s1).add(new EdgeInfo(s1, s2, routeEdge));
         adjacencyList.get(s2).add(new EdgeInfo(s2, s1, routeEdge));
     }

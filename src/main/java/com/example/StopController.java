@@ -171,7 +171,6 @@ public class StopController {
         return response;
     }
     
-    // Yeni: Kullanıcı ödeme onayı verdiğinde çağrılacak endpoint
     @PostMapping("/approvePayment")
     public Map<String, Object> approvePayment(@RequestBody Map<String, Object> request) {
         double finalCost = Double.parseDouble(request.get("finalCost").toString());

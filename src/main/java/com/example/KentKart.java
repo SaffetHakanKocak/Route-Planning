@@ -4,7 +4,6 @@ public class KentKart extends OdemeYontemi implements Indirim {
     private final double indirimYuzdesi = 0.20;
     private double bakiye;
 
-    // Constructor ile başlangıç bakiyesi belirlenir.
     public KentKart(double bakiye) {
         this.bakiye = bakiye;
     }
@@ -12,11 +11,6 @@ public class KentKart extends OdemeYontemi implements Indirim {
     @Override
     public String OdemeYontemiGoster() {
         return "Kent Kart (Bakiye: " + String.format("%.2f", bakiye) + " TL)";
-    }
-    
-    @Override
-    public boolean isValidForTaxi() {
-        return false;
     }
     
     @Override

@@ -18,19 +18,16 @@ public class GraphBuilderService {
     public ManualGraph buildGraph() throws Exception {
         CityData cityData = cityDataRepository.loadCityData();
 
-        // Durakları id'lerine göre haritalıyoruz
         Map<String, Stop> stopMap = new HashMap<>();
         for (Stop stop : cityData.getDuraklar()) {
             stopMap.put(stop.getId(), stop);
         }
 
         ManualGraph graph = new ManualGraph();
-        // Düğümleri ekliyoruz
         for (Stop stop : cityData.getDuraklar()) {
             graph.addVertex(stop);
         }
 
-        // Kenarları ekliyoruz
         for (Stop stop : cityData.getDuraklar()) {
             if (!stop.isSonDurak() && stop.getNextStops() != null) {
                 for (NextStopInfo ns : stop.getNextStops()) {

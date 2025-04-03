@@ -21,14 +21,11 @@ public class GraphBuilderExample implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
-            // Manuel grafı oluşturuyoruz.
             ManualGraph graph = graphBuilderService.buildGraph();
             System.out.println("Graf Kenarları (Yönsüz):");
             
-            // Her düğümün kenarlarına erişiyoruz.
             for (Stop stop : graph.getVertices()) {
                 for (EdgeInfo edgeInfo : graph.getEdges(stop)) {
-                    // Aynı kenarı iki kez yazdırmamak için yalnızca 'from' kısmı, düğümden eşleşiyorsa yazdırabiliriz.
                     if (edgeInfo.getFrom().equals(stop)) {
                         Stop source = edgeInfo.getFrom();
                         Stop target = edgeInfo.getTo();

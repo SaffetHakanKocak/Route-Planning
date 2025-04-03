@@ -4,7 +4,6 @@ public class KrediKarti extends OdemeYontemi implements Zam {
     private final double ZamYuzdesi = 0.30;
     private double krediLimiti;
 
-    // Constructor ile kredi limiti belirlenir.
     public KrediKarti(double krediLimiti) {
         this.krediLimiti = krediLimiti;
     }
@@ -12,11 +11,6 @@ public class KrediKarti extends OdemeYontemi implements Zam {
     @Override
     public String OdemeYontemiGoster() {
         return "Kredi Kartı (Limit: " + String.format("%.2f", krediLimiti) + " TL)";
-    }
-    
-    @Override
-    public boolean isValidForTaxi() {
-        return true;
     }
     
     @Override
